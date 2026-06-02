@@ -2,87 +2,133 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>SunHero RPG Panel</title>
+<title>Sun Hero Panel</title>
 
 <style>
 body {
-    background: #111;
-    color: white;
+    margin: 0;
     font-family: Arial;
+    background: #0e0e10;
+    color: white;
+}
+
+.container {
+    padding: 10px;
 }
 
 .card {
-    width: 260px;
-    padding: 12px;
-    border: 2px solid #444;
+    background: #18181b;
     border-radius: 10px;
-    background: #1a1a1a;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.name {
+    font-size: 18px;
+    font-weight: bold;
+    color: gold;
 }
 
 .hp-bar {
-    height: 12px;
-    background: red;
-    margin-top: 6px;
-    border-radius: 5px;
+    width: 100%;
+    height: 14px;
+    background: #333;
+    border-radius: 6px;
     overflow: hidden;
+    margin-top: 5px;
 }
 
 .hp-fill {
     height: 100%;
     width: 100%;
     background: limegreen;
+    transition: width 0.3s ease;
 }
 
 button {
-    margin-top: 10px;
-    padding: 8px;
     width: 100%;
+    padding: 10px;
+    background: #9147ff;
+    color: white;
+    border: none;
+    border-radius: 8px;
     cursor: pointer;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+button:hover {
+    background: #772ce8;
 }
 </style>
 </head>
 
 <body>
 
-<div class="card">
-    <h3 id="name">Player</h3>
+<div class="container">
 
-    <div>Class: <span id="class"></span></div>
-    <div>Level: <span id="level"></span></div>
-    <div>Gold: <span id="gold"></span></div>
+    <div class="card">
+        <div class="name" id="name">Loading...</div>
 
-    <div class="hp-bar">
-        <div class="hp-fill" id="hp"></div>
+        <div>Class: <span id="class">-</span></div>
+        <div>Level: <span id="level">-</span></div>
+        <div>Gold: <span id="gold">-</span></div>
+
+        <div style="margin-top:10px;">HP</div>
+        <div class="hp-bar">
+            <div class="hp-fill" id="hpFill"></div>
+        </div>
+
+        <button onclick="joinGame()">JOIN</button>
     </div>
 
-    <button onclick="join()">JOIN</button>
 </div>
 
 <script>
-let username = "test_user"; // позже заменим на Twitch user_id
+const API = "https://rep-sunhero.onrender.com";
 
-async function join() {
-    const res = await fetch("/api/join", {
+let username = "guest";
+
+// Twitch helper
+window.Twitch.ext.onAuthorized = (auth) => {
+    username = auth.userId; // можно заменить на display_name позже
+    loadData();
+};
+
+// JOIN кнопка
+function joinGame() {
+    fetch(API + "/api/join", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ username })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: username })
     });
-
-    const data = await res.json();
-    update(data);
 }
 
-function update(p) {
-    if (!p) return;
+// загрузка стата
+async function loadData() {
+    try {
+        const res = await fetch(API + "/api/players");
+        const data = await res.json();
 
-    document.getElementById("name").innerText = p.username;
-    document.getElementById("class").innerText = p.class;
-    document.getElementById("level").innerText = p.level;
-    document.getElementById("gold").innerText = p.gold;
+        const player = data[username];
 
-    let hpPercent = (p.hp / p.max_hp) * 100;
-    document.getElementById("hp").style.width = hpPercent + "%";
+        if (!player) return;
+
+        document.getElementById("name").innerText = username;
+        document.getElementById("class").innerText = player.class;
+        document.getElementById("level").innerText = player.level;
+        document.getElementById("gold").innerText = player.gold;
+
+        let hpPercent = (player.hp / player.max_hp) * 100;
+        document.getElementById("hpFill").style.width = hpPercent + "%";
+
+    } catch (e) {
+        console.log(e);
+    }
 }
+
+// автообновление
+setInterval(loadData, 2000);
 </script>
 
 </body>
