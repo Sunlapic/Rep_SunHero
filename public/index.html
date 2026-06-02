@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SunHero RPG Panel</title>
+
+<style>
+body {
+    background: #111;
+    color: white;
+    font-family: Arial;
+}
+
+.card {
+    width: 260px;
+    padding: 12px;
+    border: 2px solid #444;
+    border-radius: 10px;
+    background: #1a1a1a;
+}
+
+.hp-bar {
+    height: 12px;
+    background: red;
+    margin-top: 6px;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.hp-fill {
+    height: 100%;
+    width: 100%;
+    background: limegreen;
+}
+
+button {
+    margin-top: 10px;
+    padding: 8px;
+    width: 100%;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+    <h3 id="name">Player</h3>
+
+    <div>Class: <span id="class"></span></div>
+    <div>Level: <span id="level"></span></div>
+    <div>Gold: <span id="gold"></span></div>
+
+    <div class="hp-bar">
+        <div class="hp-fill" id="hp"></div>
+    </div>
+
+    <button onclick="join()">JOIN</button>
+</div>
+
+<script>
+let username = "test_user"; // позже заменим на Twitch user_id
+
+async function join() {
+    const res = await fetch("/api/join", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ username })
+    });
+
+    const data = await res.json();
+    update(data);
+}
+
+function update(p) {
+    if (!p) return;
+
+    document.getElementById("name").innerText = p.username;
+    document.getElementById("class").innerText = p.class;
+    document.getElementById("level").innerText = p.level;
+    document.getElementById("gold").innerText = p.gold;
+
+    let hpPercent = (p.hp / p.max_hp) * 100;
+    document.getElementById("hp").style.width = hpPercent + "%";
+}
+</script>
+
+</body>
+</html>
