@@ -1,48 +1,35 @@
 const express = require("express");
-const cors = require("cors");
-
 const app = express();
 
-app.use(cors());
 app.use(express.json());
 
 const players = {};
 
+// создать игрока
 function createPlayer(name) {
     return {
         username: name,
         class: "wizard",
-        gold: 6084,
-
+        gold: 0,
         strength: 5,
-        agility: 1001004,
+        agility: 10,
         intellect: 5,
-        max_hp: 175,
-        hp: 175,
-        damage: 1001047,
+        max_hp: 100,
+        hp: 100,
+        damage: 10,
 
         class_levels: {
-            warrior: 2,
-            archer: 9999999,
-            wizard: 9
-        },
-
-        class_exp: {
-            warrior: 130,
-            archer: 1030,
-            wizard: 320
-        },
-
-        class_attr_points: {
-            warrior: 3,
-            archer: 28999995,
-            wizard: 24
+            warrior: 1,
+            archer: 1,
+            wizard: 1
         }
     };
 }
 
+// JOIN игрока
 app.post("/api/join", (req, res) => {
     const name = req.body.name;
+
     if (!name) return res.json({ error: "no name" });
 
     if (!players[name]) {
@@ -52,11 +39,11 @@ app.post("/api/join", (req, res) => {
     res.json(players[name]);
 });
 
+// получить всех игроков
 app.get("/api/players", (req, res) => {
     res.json(players);
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log("Server running on port", PORT);
+app.listen(10000, () => {
+    console.log("Server running on port 10000");
 });
