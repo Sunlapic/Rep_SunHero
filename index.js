@@ -3,9 +3,15 @@ const cors = require("cors");
 const { MongoClient } = require("mongodb");
 
 const app = express();
-const MONGO_URI =
-"mongodb+srv://serjantos1991_db_user:rnoC2mmDmdSZfOYC@cluster0.r9xsnkm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
+/* =======================
+   MONGO URI (через env!)
+======================= */
+const MONGO_URI = process.env.MONGO_URL;
+
+/* =======================
+   DB
+======================= */
 let db;
 let playersCollection;
 
@@ -14,11 +20,6 @@ let playersCollection;
 ======================= */
 app.use(cors());
 app.use(express.json());
-
-/* =======================
-   DATABASE (RAM)
-======================= */
-const players = {};
 
 /* =======================
    CREATE PLAYER
@@ -59,62 +60,90 @@ function createPlayer(name) {
 }
 
 /* =======================
-   JOIN PLAYER
+   JOIN PLAYER (MongoDB)
 ======================= */
-app.post("/api/join", (req, res) => {
+app.post("/api/join", async (req, res) => {
     const name = req.body.name;
 
     if (!name) {
         return res.json({ error: "no name" });
     }
 
-    if (!players[name]) {
-        players[name] = createPlayer(name);
-    }
+    try {
+        let player = await playersCollection.findOne({ username: name });
 
-    res.json(players[name]);
+        if (!player) {
+            player = createPlayer(name);
+            await playersCollection.insertOne(player);
+        }
+
+        res.json(player);
+
+    } catch (err) {
+        console.error(err);
+        res.json({ error: "db error" });
+    }
 });
 
 /* =======================
    GET ALL PLAYERS
 ======================= */
-app.get("/api/players", (req, res) => {
-    res.json(players);
+app.get("/api/players", async (req, res) => {
+    try {
+        const players = await playersCollection.find().toArray();
+        res.json(players);
+    } catch (err) {
+        res.json({ error: "db error" });
+    }
 });
 
 /* =======================
    GET ONE PLAYER
 ======================= */
-app.get("/api/player/:name", (req, res) => {
+app.get("/api/player/:name", async (req, res) => {
     const name = req.params.name;
 
-    if (!players[name]) {
-        return res.json({ error: "not found" });
-    }
+    try {
+        const player = await playersCollection.findOne({ username: name });
 
-    res.json(players[name]);
+        if (!player) {
+            return res.json({ error: "not found" });
+        }
+
+        res.json(player);
+
+    } catch (err) {
+        res.json({ error: "db error" });
+    }
 });
 
 /* =======================
-   UPDATE PLAYER (для GameMaker)
+   UPDATE PLAYER
 ======================= */
-app.post("/api/update", (req, res) => {
+app.post("/api/update", async (req, res) => {
     const { name, data } = req.body;
 
-    if (!name || !players[name]) {
+    if (!name) {
         return res.json({ error: "no player" });
     }
 
-    players[name] = {
-        ...players[name],
-        ...data
-    };
+    try {
+        const result = await playersCollection.findOneAndUpdate(
+            { username: name },
+            { $set: data },
+            { returnDocument: "after" }
+        );
 
-    res.json(players[name]);
+        res.json(result.value);
+
+    } catch (err) {
+        console.error(err);
+        res.json({ error: "db error" });
+    }
 });
 
 /* =======================
-   SERVER START
+   START SERVER
 ======================= */
 const PORT = process.env.PORT || 10000;
 
@@ -134,7 +163,7 @@ async function startServer() {
         });
 
     } catch (err) {
-        console.error(err);
+        console.error("MongoDB connection error:", err);
     }
 }
 
