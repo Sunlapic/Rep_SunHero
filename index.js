@@ -1,7 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const { MongoClient } = require("mongodb");
 
 const app = express();
+const MONGO_URI =
+"mongodb+srv://serjantos1991_db_user:rnoC2mmDmdSZfOYC@cluster0.r9xsnkm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+
+let db;
+let playersCollection;
 
 /* =======================
    MIDDLEWARE
@@ -112,6 +118,24 @@ app.post("/api/update", (req, res) => {
 ======================= */
 const PORT = process.env.PORT || 10000;
 
-app.listen(PORT, () => {
-    console.log("Server running on port " + PORT);
-});
+async function startServer() {
+    try {
+        const client = new MongoClient(MONGO_URI);
+
+        await client.connect();
+
+        db = client.db("sunhero");
+        playersCollection = db.collection("players");
+
+        console.log("MongoDB connected");
+
+        app.listen(PORT, () => {
+            console.log("Server running on port " + PORT);
+        });
+
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+startServer();
