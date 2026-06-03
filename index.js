@@ -1,27 +1,69 @@
-const API = "https://rep-sunhero.onrender.com";
+const express = require("express");
+const cors = require("cors");
 
-const username = "test_user";
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-async function join() {
-  await fetch(API + "/api/join", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      name: username
-    })
-  });
+const players = {};
 
-  loadStats();
+// ---------- PLAYER TEMPLATE ----------
+function createPlayer(name) {
+    return {
+        username: name,
+        class: "wizard",
+        gold: 0,
+
+        strength: 5,
+        agility: 1001004,
+        intellect: 5,
+        max_hp: 175,
+        hp: 175,
+        damage: 1001047,
+
+        class_levels: {
+            warrior: 2,
+            archer: 9999999,
+            wizard: 9
+        },
+
+        class_exp: {
+            warrior: 130,
+            archer: 1030,
+            wizard: 320
+        },
+
+        class_attr_points: {
+            warrior: 3,
+            archer: 28999995,
+            wizard: 24
+        }
+    };
 }
 
-async function loadStats() {
-  const res = await fetch(API + "/api/players");
-  const data = await res.json();
+// ---------- JOIN PLAYER ----------
+app.post("/api/join", (req, res) => {
+    const name = req.body.name;
 
-  document.getElementById("stats").innerText =
-    JSON.stringify(data, null, 2);
-}
+    if (!name) {
+        return res.json({ error: "no name" });
+    }
 
-loadStats();
+    if (!players[name]) {
+        players[name] = createPlayer(name);
+    }
+
+    res.json(players[name]);
+});
+
+// ---------- GET ALL PLAYERS ----------
+app.get("/api/players", (req, res) => {
+    res.json(players);
+});
+
+// ---------- START SERVER ----------
+const PORT = process.env.PORT || 10000;
+
+app.listen(PORT, () => {
+    console.log("Server running on port", PORT);
+});
