@@ -1,3 +1,11 @@
+const express = require("express");
+const cors = require("cors");
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
 const players = {};
 
 function createPlayer(name) {
@@ -46,4 +54,9 @@ app.post("/api/join", (req, res) => {
 
 app.get("/api/players", (req, res) => {
     res.json(players);
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log("Server running on port", PORT);
 });
