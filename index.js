@@ -1,38 +1,27 @@
-const express = require("express");
-const cors = require("cors");
+const API = "https://rep-sunhero.onrender.com";
 
-const app = express();
+const username = "test_user";
 
-app.use(cors());
-app.use(express.json());
+async function join() {
+  await fetch(API + "/api/join", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      name: username
+    })
+  });
 
-const players = {};
+  loadStats();
+}
 
-// GET players
-app.get("/api/players", (req, res) => {
-    res.json(players);
-});
+async function loadStats() {
+  const res = await fetch(API + "/api/players");
+  const data = await res.json();
 
-// JOIN player
-app.post("/api/join", (req, res) => {
-    const name = req.body.name;
+  document.getElementById("stats").innerText =
+    JSON.stringify(data, null, 2);
+}
 
-    if (!name) return res.json({ error: "no name" });
-
-    if (!players[name]) {
-        players[name] = {
-            class: "warrior",
-            level: 1,
-            gold: 0,
-            hp: 100,
-            max_hp: 100
-        };
-    }
-
-    res.json(players[name]);
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log("Server running on port", PORT);
-});
+loadStats();
