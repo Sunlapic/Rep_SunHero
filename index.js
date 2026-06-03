@@ -1,18 +1,10 @@
-const express = require("express");
-const cors = require("cors");
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
 const players = {};
 
-// ---------- PLAYER TEMPLATE ----------
 function createPlayer(name) {
     return {
         username: name,
         class: "wizard",
-        gold: 0,
+        gold: 6084,
 
         strength: 5,
         agility: 1001004,
@@ -41,13 +33,9 @@ function createPlayer(name) {
     };
 }
 
-// ---------- JOIN PLAYER ----------
 app.post("/api/join", (req, res) => {
     const name = req.body.name;
-
-    if (!name) {
-        return res.json({ error: "no name" });
-    }
+    if (!name) return res.json({ error: "no name" });
 
     if (!players[name]) {
         players[name] = createPlayer(name);
@@ -56,14 +44,6 @@ app.post("/api/join", (req, res) => {
     res.json(players[name]);
 });
 
-// ---------- GET ALL PLAYERS ----------
 app.get("/api/players", (req, res) => {
     res.json(players);
-});
-
-// ---------- START SERVER ----------
-const PORT = process.env.PORT || 10000;
-
-app.listen(PORT, () => {
-    console.log("Server running on port", PORT);
 });
