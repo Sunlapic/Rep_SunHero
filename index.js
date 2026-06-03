@@ -14,6 +14,7 @@ const MONGO_URI = process.env.MONGO_URL;
 ======================= */
 let db;
 let playersCollection;
+const lastUpdate = {};
 
 /* =======================
    MIDDLEWARE
@@ -123,14 +124,48 @@ app.get("/api/player/:name", async (req, res) => {
 app.post("/api/update", async (req, res) => {
     const { name, data } = req.body;
 
-    if (!name) {
-        return res.json({ error: "no player" });
+    if (!name || !data) {
+        return res.json({ error: "no data" });
+    }
+   const now = Date.now();
+
+    if (lastUpdate[name] && now - lastUpdate[name] < 500) {
+        return res.json({ error: "too fast" });
     }
 
+    lastUpdate[name] = now;
+
     try {
+        // разрешаем обновлять только эти поля (защита)
+        const allowedFields = [
+            "gold",
+            "strength",
+            "agility",
+            "intellect",
+            "hp",
+            "max_hp",
+            "damage",
+            "class",
+            "class_levels",
+            "class_exp",
+            "class_attr_points"
+        ];
+
+        let safeUpdate = {};
+
+        for (const key of allowedFields) {
+            if (data[key] !== undefined) {
+                safeUpdate[key] = data[key];
+            }
+        }
+
+        if (Object.keys(safeUpdate).length === 0) {
+            return res.json({ error: "nothing to update" });
+        }
+
         const result = await playersCollection.findOneAndUpdate(
             { username: name },
-            { $set: data },
+            { $set: safeUpdate },
             { returnDocument: "after" }
         );
 
