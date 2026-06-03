@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<!-- Twitch Extension Helper (ОБЯЗАТЕЛЬНО) -->
+<script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+
+<style>
+body {
+    margin:0;
+    font-family: 'Georgia', serif;
+    background:#0b0f14;
+    color:#e6d3a3;
+}
+
+.wrapper {
+    padding:15px;
+}
+
+.title {
+    text-align:center;
+    font-size:22px;
+    color:#f5d27a;
+    margin-bottom:10px;
+    letter-spacing:2px;
+}
+
+.card {
+    background:linear-gradient(145deg, #1a1f2a, #0f141c);
+    border:1px solid #3a2f1b;
+    border-radius:10px;
+    padding:12px;
+    box-shadow:0 0 10px rgba(0,0,0,0.5);
+}
+
+.row {
+    display:flex;
+    justify-content:space-between;
+    padding:4px 0;
+    border-bottom:1px solid rgba(255,255,255,0.05);
+}
+
+.label {
+    color:#c9b37a;
+}
+
+.value {
+    color:#ffffff;
+    font-weight:bold;
+}
+
+.gold {
+    color:#ffd700;
+}
+
+.hp {
+    color:#ff5c5c;
+}
+
+.class {
+    color:#7ec8ff;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="wrapper">
+
+    <div class="title">⚔ SUN HERO RPG ⚔</div>
+
+    <div class="card" id="panel">
+        Loading hero...
+    </div>
+
+</div>
+
+<script>
+const API = "https://rep-sunhero.onrender.com";
+
+let player = null;
+
+async function loadPlayer() {
+    const res = await fetch(API + "/api/players");
+    const data = await res.json();
+
+    // временно берём первого игрока
+    const key = Object.keys(data)[0];
+    player = data[key];
+
+    render();
+}
+
+function render() {
+    if (!player) return;
+
+    document.getElementById("panel").innerHTML = `
+        <div class="row"><div class="label">Name</div><div class="value">${player.username}</div></div>
+        <div class="row"><div class="label">Class</div><div class="value class">${player.class}</div></div>
+        <div class="row"><div class="label">Gold</div><div class="value gold">${player.gold}</div></div>
+        <div class="row"><div class="label">HP</div><div class="value hp">${player.hp}/${player.max_hp}</div></div>
+
+        <hr>
+
+        <div class="row"><div class="label">Strength</div><div class="value">${player.strength}</div></div>
+        <div class="row"><div class="label">Agility</div><div class="value">${player.agility}</div></div>
+        <div class="row"><div class="label">Intellect</div><div class="value">${player.intellect}</div></div>
+        <div class="row"><div class="label">Damage</div><div class="value">${player.damage}</div></div>
+
+        <hr>
+
+        <div class="row"><div class="label">Warrior Lv</div><div class="value">${player.class_levels.warrior}</div></div>
+        <div class="row"><div class="label">Archer Lv</div><div class="value">${player.class_levels.archer}</div></div>
+        <div class="row"><div class="label">Wizard Lv</div><div class="value">${player.class_levels.wizard}</div></div>
+    `;
+}
+
+loadPlayer();
+</script>
+
+</body>
+</html>
