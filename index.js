@@ -1,19 +1,33 @@
 const express = require("express");
+const cors = require("cors");
+
 const app = express();
 
+/* =======================
+   MIDDLEWARE
+======================= */
+app.use(cors());
 app.use(express.json());
 
+/* =======================
+   DATABASE (RAM)
+======================= */
 const players = {};
 
-// создать игрока
+/* =======================
+   CREATE PLAYER
+======================= */
 function createPlayer(name) {
     return {
         username: name,
         class: "wizard",
+
         gold: 0,
+
         strength: 5,
         agility: 10,
         intellect: 5,
+
         max_hp: 100,
         hp: 100,
         damage: 10,
@@ -22,15 +36,31 @@ function createPlayer(name) {
             warrior: 1,
             archer: 1,
             wizard: 1
+        },
+
+        class_exp: {
+            warrior: 0,
+            archer: 0,
+            wizard: 0
+        },
+
+        class_attr_points: {
+            warrior: 0,
+            archer: 0,
+            wizard: 0
         }
     };
 }
 
-// JOIN игрока
+/* =======================
+   JOIN PLAYER
+======================= */
 app.post("/api/join", (req, res) => {
     const name = req.body.name;
 
-    if (!name) return res.json({ error: "no name" });
+    if (!name) {
+        return res.json({ error: "no name" });
+    }
 
     if (!players[name]) {
         players[name] = createPlayer(name);
@@ -39,11 +69,49 @@ app.post("/api/join", (req, res) => {
     res.json(players[name]);
 });
 
-// получить всех игроков
+/* =======================
+   GET ALL PLAYERS
+======================= */
 app.get("/api/players", (req, res) => {
     res.json(players);
 });
 
-app.listen(10000, () => {
-    console.log("Server running on port 10000");
+/* =======================
+   GET ONE PLAYER
+======================= */
+app.get("/api/player/:name", (req, res) => {
+    const name = req.params.name;
+
+    if (!players[name]) {
+        return res.json({ error: "not found" });
+    }
+
+    res.json(players[name]);
+});
+
+/* =======================
+   UPDATE PLAYER (для GameMaker)
+======================= */
+app.post("/api/update", (req, res) => {
+    const { name, data } = req.body;
+
+    if (!name || !players[name]) {
+        return res.json({ error: "no player" });
+    }
+
+    players[name] = {
+        ...players[name],
+        ...data
+    };
+
+    res.json(players[name]);
+});
+
+/* =======================
+   SERVER START
+======================= */
+const PORT = process.env.PORT || 10000;
+
+app.listen(PORT, () => {
+    console.log("Server running on port " + PORT);
 });
