@@ -1,26 +1,6 @@
 <!DOCTYPE html>
 <html>
-<head>
-<meta charset="UTF-8">
-<title>Sun Hero Mobile</title>
-</head>
-<body style="background:#0e0e10;color:white;font-family:Arial">
-
-<h3>Sun Hero Mobile</h3>
-
-<button onclick="join()">JOIN</button>
-
-<script>
-const API = "https://rep-sunhero.onrender.com";
-
-function join() {
-    fetch(API + "/api/join", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ name: "mobile_user" })
-    });
-}
-</script>
-
+<body style="background:green;color:white;font-size:30px;">
+MOBILE OK
 </body>
 </html>
