@@ -1,3 +1,19 @@
-<body style="background:blue;color:white;font-size:40px">
-PANEL OK 0.0.3
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+</head>
+<body style="background:red;color:white;font-size:40px">
+
+<h1>PANEL OK</h1>
+
+<script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+
+<script>
+  window.Twitch.ext.onAuthorized(function(auth) {
+    console.log("AUTH OK", auth);
+  });
+</script>
+
 </body>
+</html>
