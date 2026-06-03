@@ -1,7 +1,20 @@
 const API = "https://rep-sunhero.onrender.com";
 
+const username = "test_user";
+
 async function join() {
-  await fetch(API + "/api/join", { method: "POST" });
+  const res = await fetch(API + "/api/join", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      name: username
+    })
+  });
+
+  console.log(await res.json());
+
   loadStats();
 }
 
