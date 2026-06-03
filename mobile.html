@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+
+<style>
+body {
+    margin:0;
+    background:#0b0f14;
+    color:#e6d3a3;
+    font-family: Georgia;
+}
+
+.box { padding:10px; }
+</style>
+</head>
+
+<body>
+
+<div class="box">
+    <h3>MOBILE SUN HERO</h3>
+
+    <div id="ui">Loading...</div>
+</div>
+
+<script>
+const API = "https://rep-sunhero.onrender.com";
+
+async function load() {
+    const res = await fetch(API + "/api/players");
+    const data = await res.json();
+
+    const keys = Object.keys(data);
+
+    if (keys.length === 0) {
+        document.getElementById("ui").innerHTML = "No players";
+        return;
+    }
+
+    const p = data[keys[0]];
+
+    document.getElementById("ui").innerHTML =
+        `${p.username}<br>Gold: ${p.gold}<br>HP: ${p.hp}`;
+}
+
+load();
+setInterval(load, 2000);
+</script>
+
+</body>
+</html>
