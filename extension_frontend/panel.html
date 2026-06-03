@@ -1,19 +1,68 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
+<title>Sun Hero</title>
+
+<style>
+body {
+    background:#0e0e10;
+    color:white;
+    font-family: Arial;
+}
+
+.card {
+    background:#18181b;
+    padding:15px;
+    margin:10px;
+    border-radius:12px;
+}
+
+.row {
+    display:flex;
+    justify-content:space-between;
+    margin:5px 0;
+}
+
+.hpbar {
+    width:100%;
+    background:#333;
+    border-radius:6px;
+    overflow:hidden;
+    margin:5px 0;
+}
+
+.hpfill {
+    height:10px;
+    background:#ff4d4d;
+    width:100%;
+}
+
+.gold {
+    color:gold;
+    font-weight:bold;
+}
+
+button {
+    padding:10px;
+    background:#9147ff;
+    border:0;
+    color:white;
+    border-radius:8px;
+    cursor:pointer;
+}
+</style>
 </head>
-<body style="background:red;color:white;font-size:40px">
 
-<h1>PANEL OK</h1>
+<body>
 
-<script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+<h2>⚔ Sun Hero RPG Panel</h2>
 
-<script>
-  window.Twitch.ext.onAuthorized(function(auth) {
-    console.log("AUTH OK", auth);
-  });
-</script>
+<button onclick="join()">JOIN</button>
+
+<div id="player"></div>
+
+<script src="script.js"></script>
 
 </body>
 </html>
