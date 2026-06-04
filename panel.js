@@ -14,14 +14,15 @@ async function loadPlayer() {
             return;
         }
 
-        render(list[0]);
+        render(list[0]); // пока показываем первого игрока
     } catch (e) {
         panel.innerHTML = '<div class="err">Ошибка загрузки: ' + e.message + '</div>';
     }
 }
 
 function render(p) {
-    const cl = p.class_levels || { warrior:"-", archer:"-", wizard:"-" };
+    const cl = p.class_levels || { warrior: "-", archer: "-", wizard: "-" };
+
     panel.innerHTML =
         '<div class="row"><div class="label">Name</div><div class="value">' + (p.username ?? "-") + '</div></div>' +
         '<div class="row"><div class="label">Class</div><div class="value class">' + (p.class ?? "-") + '</div></div>' +
