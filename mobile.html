@@ -10,44 +10,24 @@ body {
     margin:0;
     background:#0b0f14;
     color:#e6d3a3;
-    font-family: Georgia;
+    font-family: Georgia, serif;
 }
-
 .box { padding:10px; }
+.row { display:flex; justify-content:space-between; padding:3px 0; }
+.label { color:#c9b37a; }
+.value { color:#fff; font-weight:bold; }
+.err { color:#ff7b7b; font-size:13px; }
 </style>
 </head>
 
 <body>
 
 <div class="box">
-    <h3>MOBILE SUN HERO</h3>
-
+    <h3>⚔ SUN HERO ⚔</h3>
     <div id="ui">Loading...</div>
 </div>
 
-<script>
-const API = "https://rep-sunhero.onrender.com";
-
-async function load() {
-    const res = await fetch(API + "/api/players");
-    const data = await res.json();
-
-    const keys = Object.keys(data);
-
-    if (keys.length === 0) {
-        document.getElementById("ui").innerHTML = "No players";
-        return;
-    }
-
-    const p = data[keys[0]];
-
-    document.getElementById("ui").innerHTML =
-        `${p.username}<br>Gold: ${p.gold}<br>HP: ${p.hp}`;
-}
-
-load();
-setInterval(load, 2000);
-</script>
+<script src="mobile.js"></script>
 
 </body>
 </html>
