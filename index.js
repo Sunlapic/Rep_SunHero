@@ -40,6 +40,26 @@ function createPlayer(name) {
         hp: 100,
         damage: 10,
 
+       class_stats: {
+    warrior: {
+        strength: 5,
+        agility: 5,
+        intellect: 5
+    },
+
+    archer: {
+        strength: 2,
+        agility: 5,
+        intellect: 2
+    },
+
+    wizard: {
+        strength: 2,
+        agility: 2,
+        intellect: 5
+    }
+},
+
         class_levels: {
             warrior: 1,
             archer: 1,
@@ -57,6 +77,7 @@ function createPlayer(name) {
             archer: 0,
             wizard: 0
         }
+       
     };
 }
 
@@ -138,18 +159,21 @@ app.post("/api/update", async (req, res) => {
     try {
         // разрешаем обновлять только эти поля (защита)
         const allowedFields = [
-            "gold",
-            "strength",
-            "agility",
-            "intellect",
-            "hp",
-            "max_hp",
-            "damage",
-            "class",
-            "class_levels",
-            "class_exp",
-            "class_attr_points"
-        ];
+    "gold",
+    "strength",
+    "agility",
+    "intellect",
+    "hp",
+    "max_hp",
+    "damage",
+    "class",
+
+    "class_levels",
+    "class_exp",
+    "class_attr_points",
+
+    "class_stats" // характеристики каждого класса
+];
 
         let safeUpdate = {};
 
