@@ -40,25 +40,25 @@ function createPlayer(name) {
         hp: 100,
         damage: 10,
 
-       class_stats: {
-    warrior: {
-        strength: 5,
-        agility: 5,
-        intellect: 5
-    },
+        class_stats: {
+            warrior: {
+                strength: 5,
+                agility: 5,
+                intellect: 5
+            },
 
-    archer: {
-        strength: 2,
-        agility: 5,
-        intellect: 2
-    },
+            archer: {
+                strength: 2,
+                agility: 5,
+                intellect: 2
+            },
 
-    wizard: {
-        strength: 2,
-        agility: 2,
-        intellect: 5
-    }
-},
+            wizard: {
+                strength: 2,
+                agility: 2,
+                intellect: 5
+            }
+        },
 
         class_levels: {
             warrior: 1,
@@ -77,7 +77,6 @@ function createPlayer(name) {
             archer: 0,
             wizard: 0
         }
-       
     };
 }
 
@@ -99,11 +98,11 @@ app.post("/api/join", async (req, res) => {
             await playersCollection.insertOne(player);
         }
 
-        res.json(player);
+        return res.json(player);
 
     } catch (err) {
         console.error(err);
-        res.json({ error: "db error" });
+        return res.json({ error: "db error" });
     }
 });
 
@@ -113,9 +112,9 @@ app.post("/api/join", async (req, res) => {
 app.get("/api/players", async (req, res) => {
     try {
         const players = await playersCollection.find().toArray();
-        res.json(players);
+        return res.json(players);
     } catch (err) {
-        res.json({ error: "db error" });
+        return res.json({ error: "db error" });
     }
 });
 
@@ -132,10 +131,11 @@ app.get("/api/player/:name", async (req, res) => {
             return res.json({ error: "not found" });
         }
 
-        res.json(player);
+        return res.json(player);
 
     } catch (err) {
-        res.json({ error: "db error" });
+        console.error(err);
+        return res.json({ error: "db error" });
     }
 });
 
@@ -148,7 +148,8 @@ app.post("/api/update", async (req, res) => {
     if (!name || !data) {
         return res.json({ error: "no data" });
     }
-   const now = Date.now();
+
+    const now = Date.now();
 
     if (lastUpdate[name] && now - lastUpdate[name] < 500) {
         return res.json({ error: "too fast" });
@@ -157,23 +158,21 @@ app.post("/api/update", async (req, res) => {
     lastUpdate[name] = now;
 
     try {
-        // разрешаем обновлять только эти поля (защита)
         const allowedFields = [
-    "gold",
-    "strength",
-    "agility",
-    "intellect",
-    "hp",
-    "max_hp",
-    "damage",
-    "class",
+            "gold",
+            "strength",
+            "agility",
+            "intellect",
+            "hp",
+            "max_hp",
+            "damage",
+            "class",
 
-    "class_levels",
-    "class_exp",
-    "class_attr_points",
-
-    "class_stats" // характеристики каждого класса
-];
+            "class_levels",
+            "class_exp",
+            "class_attr_points",
+            "class_stats"
+        ];
 
         let safeUpdate = {};
 
@@ -193,11 +192,17 @@ app.post("/api/update", async (req, res) => {
             { returnDocument: "after" }
         );
 
-        res.json(result.value);
+        // 🔥 ВАЖНЫЙ ФИКС
+        if (!result || !result.value) {
+            console.log("UPDATE FAILED:", result);
+            return res.json({ error: "update failed" });
+        }
+
+        return res.json(result.value);
 
     } catch (err) {
-        console.error(err);
-        res.json({ error: "db error" });
+        console.error("UPDATE ERROR:", err);
+        return res.json({ error: "db error" });
     }
 });
 
