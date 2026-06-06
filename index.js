@@ -140,7 +140,7 @@ app.get("/api/player/:name", async (req, res) => {
 });
 
 /* =======================
-   UPDATE PLAYER
+   UPDATE PLAYER (С фиксом для MongoDB v6+ и GameMaker Floats)
 ======================= */
 app.post("/api/update", async (req, res) => {
     const { name, data } = req.body;
@@ -151,6 +151,7 @@ app.post("/api/update", async (req, res) => {
 
     const now = Date.now();
 
+    // Защита от спама на сервере
     if (lastUpdate[name] && now - lastUpdate[name] < 500) {
         return res.json({ error: "too fast" });
     }
@@ -176,9 +177,24 @@ app.post("/api/update", async (req, res) => {
 
         let safeUpdate = {};
 
+        // Очистка дробных чисел из GameMaker (875.0 -> 875)
+        const cleanGameMakerNumbers = (val) => {
+            if (typeof val === "number") {
+                return Number.isInteger(val) ? val : Math.round(val); 
+            }
+            if (val && typeof val === "object" && !Array.isArray(val)) {
+                let cleanedObj = {};
+                for (const k in val) {
+                    cleanedObj[k] = cleanGameMakerNumbers(val[k]);
+                }
+                return cleanedObj;
+            }
+            return val;
+        };
+
         for (const key of allowedFields) {
             if (data[key] !== undefined) {
-                safeUpdate[key] = data[key];
+                safeUpdate[key] = cleanGameMakerNumbers(data[key]);
             }
         }
 
@@ -192,13 +208,15 @@ app.post("/api/update", async (req, res) => {
             { returnDocument: "after" }
         );
 
-        // 🔥 ВАЖНЫЙ ФИКС
-        if (!result || !result.value) {
-            console.log("UPDATE FAILED:", result);
-            return res.json({ error: "update failed" });
+        if (!result) {
+            console.log("UPDATE FAILED: Player not found in DB");
+            return res.json({ error: "player not found" });
         }
 
-        return res.json(result.value);
+        // Универсальный фикс для старых и новых версий драйвера MongoDB
+        const updatedDocument = result.value ? result.value : result;
+
+        return res.json(updatedDocument);
 
     } catch (err) {
         console.error("UPDATE ERROR:", err);
