@@ -21,6 +21,7 @@ const lastUpdate = {};
 ======================= */
 app.use(cors());
 app.use(express.json());
+app.use(express.text()); // ← FIX: Добавлено для чтения запросов от http_post_string()
 
 /* =======================
    CREATE PLAYER
@@ -140,10 +141,22 @@ app.get("/api/player/:name", async (req, res) => {
 });
 
 /* =======================
-   UPDATE PLAYER (С фиксом для MongoDB v6+ и GameMaker Floats)
+   UPDATE PLAYER (С полной поддержкой text и json от GameMaker)
 ======================= */
 app.post("/api/update", async (req, res) => {
-    const { name, data } = req.body;
+    let body = req.body;
+
+    // FIX: Если GameMaker прислал данные в виде текстовой строки, 
+    // парсим её в полноценный JavaScript объект
+    if (typeof body === "string") {
+        try {
+            body = JSON.parse(body);
+        } catch (e) {
+            return res.json({ error: "invalid json string" });
+        }
+    }
+
+    const { name, data } = body;
 
     if (!name || !data) {
         return res.json({ error: "no data" });
