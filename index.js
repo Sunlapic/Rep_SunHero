@@ -29,13 +29,13 @@ app.use(express.text()); // ← FIX: Добавлено для чтения за
 function createPlayer(name) {
     return {
         username: name,
-        class: "wizard",
+        class: "warrior",
 
         gold: 0,
 
         strength: 5,
-        agility: 10,
-        intellect: 5,
+        agility: 2,
+        intellect: 2,
 
         max_hp: 100,
         hp: 100,
@@ -44,9 +44,8 @@ function createPlayer(name) {
         class_stats: {
             warrior: {
                 strength: 5,
-                agility: 5,
-                intellect: 5
-            },
+                agility: 2,
+                intellect: 2            },
 
             archer: {
                 strength: 2,
