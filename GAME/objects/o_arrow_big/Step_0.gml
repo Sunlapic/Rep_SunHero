@@ -1,0 +1,1 @@
+scr_big_arrow_step();

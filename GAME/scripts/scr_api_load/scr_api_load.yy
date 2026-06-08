@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_api_load",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_api_load",
+  "parent":{
+    "name":"twitch",
+    "path":"folders/Scripts/twitch.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

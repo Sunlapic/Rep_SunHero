@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"twitch_log",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"twitch_log",
+  "parent":{
+    "name":"twitch",
+    "path":"folders/Scripts/twitch.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

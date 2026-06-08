@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_chat_msg",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_chat_msg",
+  "parent":{
+    "name":"chat",
+    "path":"folders/Scripts/twitch/chat.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

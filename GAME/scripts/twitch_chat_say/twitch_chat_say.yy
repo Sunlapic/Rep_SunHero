@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"twitch_chat_say",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"twitch_chat_say",
+  "parent":{
+    "name":"chat",
+    "path":"folders/Scripts/twitch/chat.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

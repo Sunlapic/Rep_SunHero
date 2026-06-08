@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_irc_flush",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_irc_flush",
+  "parent":{
+    "name":"chat",
+    "path":"folders/Scripts/twitch/chat.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}
