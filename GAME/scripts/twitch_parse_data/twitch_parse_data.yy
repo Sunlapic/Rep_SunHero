@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"twitch_parse_data",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"twitch_parse_data",
+  "parent":{
+    "name":"twitch",
+    "path":"folders/Scripts/twitch.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}
