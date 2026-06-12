@@ -40,6 +40,8 @@ function render(p) {
     const pts   = (p.class_attr_points && p.class_attr_points[p.class]) || 0;
     const hpPct = p.max_hp ? Math.round(p.hp / p.max_hp * 100) : 0;
     const h     = statHints(p);
+    // ⚡ СкА: кулдаун в кадрах → ударов в секунду (60 FPS)
+    const aps   = p.attack_spd ? (60 / p.attack_spd).toFixed(1) : "-";
 
     ui.innerHTML =
       '<div class="who"><b>' + (p.username ?? "-") + '</b> ' +
@@ -48,15 +50,14 @@ function render(p) {
       '<div class="hpbar"><div class="hpfill" style="width:' + hpPct + '%"></div>' +
       '<div class="hptext">' + (p.hp ?? 0) + '/' + (p.max_hp ?? 0) + '</div></div>' +
 
-      // статы в 2 колонки — компактно для узкого экрана
+      // статы в 2 колонки: атака и СкА в одной ячейке
       '<div class="grid">' +
         '<span class="l">🪙 <span class="gold">' + (p.gold ?? 0) + '</span></span>' +
-        '<span class="l">⚔ <span class="w">' + (p.damage ?? 0) + '</span></span>' +
+        '<span class="l">⚔ <span class="w">' + (p.damage ?? 0) + ' · ' + aps + '/с</span></span>' +
         '<span class="l">🛡 <span class="w">' + (p.armor ?? 0) + '·' + (p.magic_res ?? 0) + '</span></span>' +
         '<span class="l">✨ <span class="pts">' + pts + ' очк</span></span>' +
       '</div>' +
 
-      // кнопки СТОЛБИКОМ — широкие, под палец
       '<div class="btns">' +
         '<button class="btn b-str" onclick="copyCmd(\'!str 1\')">💪 СИЛА ' + (p.strength ?? 0) +
             ' <small>' + h.str + '</small></button>' +
