@@ -172,20 +172,23 @@ app.post("/api/update", async (req, res) => {
 
     try {
         const allowedFields = [
-            "gold",
-            "strength",
-            "agility",
-            "intellect",
-            "hp",
-            "max_hp",
-            "damage",
-            "class",
-
-            "class_levels",
-            "class_exp",
-            "class_attr_points",
-            "class_stats"
-        ];
+    "gold",
+    "strength",
+    "agility",
+    "intellect",
+    "hp",
+    "max_hp",
+    "damage",
+    "class",
+    "armor",
+    "magic_res",
+    "attack_spd",
+    "kills",
+    "class_levels",
+    "class_exp",
+    "class_attr_points",
+    "class_stats"
+];
 
         let safeUpdate = {};
 
