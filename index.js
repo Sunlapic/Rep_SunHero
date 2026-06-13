@@ -539,6 +539,10 @@ async function startServer() {
       { username: 1 },
       { unique: true }
     );
+    await playersCollection.createIndex(
+     { twitch_user_id: 1 },
+     { unique: true, sparse: true }
+    );
 
     console.log("MongoDB connected");
 
