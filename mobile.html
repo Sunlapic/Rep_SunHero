@@ -7,24 +7,9 @@
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
   >
 
-  <title>SunHero RPG Mobile</title>
-
-  <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+  <title>SunHero Mobile</title>
 
   <style>
-    :root {
-      --bg: #0e0c16;
-      --card: #171320;
-      --card2: #21182d;
-      --gold: #fbbf24;
-      --text: #f8e7b8;
-      --muted: #b8a574;
-      --red: #ef4444;
-      --green: #22c55e;
-      --blue: #38bdf8;
-      --purple: #a855f7;
-    }
-
     * {
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
@@ -34,43 +19,61 @@
     body {
       margin: 0;
       padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, sans-serif;
       width: 100%;
       min-height: 100%;
+      background: #0e0c16;
+      color: #f8e7b8;
+      font-family: Arial, sans-serif;
       overflow-x: hidden;
     }
 
-    body.dark {
-      background: #0e0c16;
-      color: var(--text);
-    }
-
-    body.light {
-      background: #f4efe3;
-      color: #201522;
-    }
-
-    .app {
-      width: 100%;
+    body {
       padding: 8px;
     }
 
     .header {
       text-align: center;
-      color: var(--gold);
+      color: #fbbf24;
+      font-size: 16px;
       font-weight: 900;
       letter-spacing: 1.5px;
-      font-size: 16px;
-      padding: 7px 4px 9px;
+      padding: 8px 4px 10px;
       border-bottom: 1px solid rgba(251, 191, 36, 0.35);
       margin-bottom: 8px;
     }
 
+    .box,
+    .loading,
+    .error,
+    .empty {
+      background: #171320;
+      border: 1px solid rgba(251, 191, 36, 0.25);
+      border-radius: 14px;
+      padding: 12px;
+      line-height: 1.4;
+      font-size: 13px;
+      text-align: center;
+      color: #f8e7b8;
+    }
+
+    .error {
+      color: #fecaca;
+      border-color: rgba(239, 68, 68, 0.55);
+    }
+
+    .ok {
+      color: #86efac;
+    }
+
+    .muted {
+      color: #b8a574;
+      font-size: 11px;
+      margin-top: 8px;
+    }
+
     .card {
-      background: linear-gradient(180deg, var(--card), var(--card2));
-      border: 1px solid rgba(251, 191, 36, 0.22);
+      background: linear-gradient(180deg, #171320, #21182d);
+      border: 1px solid rgba(251, 191, 36, 0.25);
       border-radius: 14px;
       padding: 10px;
       box-shadow: 0 8px 22px rgba(0,0,0,0.35);
@@ -78,10 +81,10 @@
 
     .top {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
       gap: 8px;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .name {
@@ -94,27 +97,25 @@
     }
 
     .class {
-      color: var(--blue);
+      color: #38bdf8;
       font-size: 11px;
-      text-align: right;
       white-space: nowrap;
     }
 
     .hpbar {
       position: relative;
-      height: 20px;
-      border-radius: 999px;
+      height: 22px;
       background: #090711;
       border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 999px;
       overflow: hidden;
-      margin: 7px 0 9px;
+      margin: 8px 0 10px;
     }
 
     .hpfill {
       height: 100%;
       width: 0%;
       background: linear-gradient(90deg, #dc2626, #22c55e);
-      transition: width 0.3s ease;
     }
 
     .hptext {
@@ -145,7 +146,7 @@
     }
 
     .label {
-      color: var(--muted);
+      color: #b8a574;
       font-size: 10px;
       margin-bottom: 3px;
     }
@@ -156,11 +157,11 @@
       font-weight: 900;
     }
 
-    .value.gold {
-      color: var(--gold);
+    .gold {
+      color: #fbbf24;
     }
 
-    .value.points {
+    .points {
       color: #86efac;
     }
 
@@ -210,46 +211,33 @@
 
     .hint {
       margin-top: 9px;
-      color: var(--muted);
+      color: #b8a574;
       font-size: 11px;
       text-align: center;
       line-height: 1.35;
       word-break: break-word;
-    }
-
-    .error,
-    .loading,
-    .empty {
-      background: rgba(0,0,0,0.25);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 12px;
-      text-align: center;
-      line-height: 1.4;
-      font-size: 12px;
-    }
-
-    .error {
-      color: #fecaca;
-      border-color: rgba(239, 68, 68, 0.4);
-    }
-
-    .mini {
-      margin-top: 7px;
-      color: var(--muted);
-      font-size: 10px;
-      text-align: center;
-      opacity: 0.75;
+      min-height: 18px;
     }
   </style>
+
+  <!-- Twitch требует helper как первый script во front-end файлах -->
+  <script defer src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+
+  <!-- v меняем, чтобы телефон не держал старый кеш -->
+  <script defer src="mobile.js?v=20260613-3"></script>
 </head>
 
 <body>
-  <div class="app">
-    <div class="header">⚔ SUN HERO ⚔</div>
-    <div id="ui" class="loading">Загрузка...</div>
+  <div class="header">⚔ SUN HERO ⚔</div>
+
+  <div id="ui" class="loading">
+    HTML загружен. Запускаю мобильный скрипт...
   </div>
 
-  <script src="mobile.js"></script>
+  <noscript>
+    <div class="error">
+      JavaScript выключен. Панель не может работать.
+    </div>
+  </noscript>
 </body>
 </html>
