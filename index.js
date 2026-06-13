@@ -343,29 +343,74 @@ app.post("/api/join", requireBotSecret, async (req, res) => {
   }
 
   try {
+    /*
+      ВАЖНО:
+      Сначала ищем игрока по twitch_user_id.
+      Потом ищем старого игрока по username.
+      Это нужно, чтобы не создавать дубль старого игрока.
+    */
+
+    const byTwitchId = await playersCollection.findOne({
+      twitch_user_id: twitchUserId
+    });
+
+    const byUsername = await playersCollection.findOne({
+      username: name
+    });
+
+    /*
+      Если вдруг twitch_user_id уже привязан к одному игроку,
+      а username принадлежит другому — это конфликт.
+    */
+    if (
+      byTwitchId &&
+      byUsername &&
+      String(byTwitchId._id) !== String(byUsername._id)
+    ) {
+      return res.status(409).json({
+        error: "twitch id and username belong to different players"
+      });
+    }
+
+    const existingPlayer = byTwitchId || byUsername;
+
+    /*
+      Если игрок уже есть — просто привязываем к нему Twitch ID.
+    */
+    if (existingPlayer) {
+      const result = await playersCollection.findOneAndUpdate(
+        { _id: existingPlayer._id },
+        {
+          $set: {
+            username: name,
+            twitch_user_id: twitchUserId,
+            twitchLinkedAt: nowIso(),
+            updatedAt: nowIso()
+          }
+        },
+        {
+          returnDocument: "after"
+        }
+      );
+
+      return res.json(publicPlayer(result.value || result));
+    }
+
+    /*
+      Если игрока ещё нет — создаём нового.
+    */
     const created = createPlayer(name);
 
     created.twitch_user_id = twitchUserId;
     created.twitchLinkedAt = nowIso();
 
-    const result = await playersCollection.findOneAndUpdate(
-      { twitch_user_id: twitchUserId },
-      {
-        $setOnInsert: created,
-        $set: {
-          username: name,
-          twitch_user_id: twitchUserId,
-          twitchLinkedAt: nowIso(),
-          updatedAt: nowIso()
-        }
-      },
-      {
-        upsert: true,
-        returnDocument: "after"
-      }
-    );
+    const insertResult = await playersCollection.insertOne(created);
 
-    return res.json(publicPlayer(result.value || result));
+    const player = await playersCollection.findOne({
+      _id: insertResult.insertedId
+    });
+
+    return res.json(publicPlayer(player));
   } catch (err) {
     console.error("JOIN ERROR:", err);
 
@@ -374,7 +419,6 @@ app.post("/api/join", requireBotSecret, async (req, res) => {
     });
   }
 });
-
 /* =========================
    GET ALL PLAYERS
 ========================= */
