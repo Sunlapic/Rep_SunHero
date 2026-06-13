@@ -4,264 +4,411 @@ const { MongoClient } = require("mongodb");
 
 const app = express();
 
-/* =======================
-   MONGO URI (через env!)
-======================= */
-const MONGO_URI = process.env.MONGO_URL;
+const PORT = process.env.PORT || 10000;
+const MONGO_URI = process.env.MONGO_URL || process.env.MONGO_URI;
 
-/* =======================
-   DB
-======================= */
-let db;
-let playersCollection;
-const lastUpdate = {};
-
-/* =======================
-   MIDDLEWARE
-======================= */
-app.use(cors());
-app.use(express.json());
-app.use(express.text()); // ← FIX: Добавлено для чтения запросов от http_post_string()
-
-/* =======================
-   CREATE PLAYER
-======================= */
-function createPlayer(name) {
-    return {
-        username: name,
-        class: "warrior",
-
-        gold: 0,
-
-        strength: 5,
-        agility: 2,
-        intellect: 2,
-
-        max_hp: 100,
-        hp: 100,
-        damage: 10,
-
-        class_stats: {
-            warrior: {
-                strength: 5,
-                agility: 2,
-                intellect: 2            },
-
-            archer: {
-                strength: 2,
-                agility: 5,
-                intellect: 2
-            },
-
-            wizard: {
-                strength: 2,
-                agility: 2,
-                intellect: 5
-            }
-        },
-
-        class_levels: {
-            warrior: 1,
-            archer: 1,
-            wizard: 1
-        },
-
-        class_exp: {
-            warrior: 0,
-            archer: 0,
-            wizard: 0
-        },
-
-        class_attr_points: {
-            warrior: 0,
-            archer: 0,
-            wizard: 0
-        }
-    };
+if (!MONGO_URI) {
+  console.error("ERROR: MONGO_URL or MONGO_URI is not set");
 }
 
-/* =======================
-   JOIN PLAYER (MongoDB)
-======================= */
-app.post("/api/join", async (req, res) => {
-    const name = req.body.name;
+let db;
+let playersCollection;
 
-    if (!name) {
-        return res.json({ error: "no name" });
-    }
+/* =========================
+   MIDDLEWARE
+========================= */
 
-    try {
-        let player = await playersCollection.findOne({ username: name });
+app.use(cors({
+  origin: true,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Accept"]
+}));
 
-        if (!player) {
-            player = createPlayer(name);
-            await playersCollection.insertOne(player);
-        }
+app.options("*", cors());
 
-        return res.json(player);
+app.use(express.json({ limit: "2mb" }));
+app.use(express.text({ limit: "2mb", type: ["text/*", "application/text"] }));
 
-    } catch (err) {
-        console.error(err);
-        return res.json({ error: "db error" });
-    }
-});
+/* =========================
+   HELPERS
+========================= */
 
-/* =======================
-   GET ALL PLAYERS
-======================= */
-app.get("/api/players", async (req, res) => {
-    try {
-        const players = await playersCollection.find().toArray();
-        return res.json(players);
-    } catch (err) {
-        return res.json({ error: "db error" });
-    }
-});
+function nowIso() {
+  return new Date().toISOString();
+}
 
-/* =======================
-   GET ONE PLAYER
-======================= */
-app.get("/api/player/:name", async (req, res) => {
-    const name = req.params.name;
+function normalizeName(name) {
+  if (name === undefined || name === null) return "";
+  return String(name).trim().slice(0, 64);
+}
 
-    try {
-        const player = await playersCollection.findOne({ username: name });
+function createPlayer(name) {
+  const username = normalizeName(name);
 
-        if (!player) {
-            return res.json({ error: "not found" });
-        }
+  return {
+    username,
+    class: "warrior",
 
-        return res.json(player);
+    gold: 0,
+    strength: 5,
+    agility: 2,
+    intellect: 2,
 
-    } catch (err) {
-        console.error(err);
-        return res.json({ error: "db error" });
-    }
-});
+    max_hp: 100,
+    hp: 100,
+    damage: 10,
+    armor: 0,
+    magic_res: 0,
+    attack_spd: 60,
+    kills: 0,
 
-/* =======================
-   UPDATE PLAYER (С полной поддержкой text и json от GameMaker)
-======================= */
-app.post("/api/update", async (req, res) => {
-    let body = req.body;
+    class_stats: {
+      warrior: { strength: 5, agility: 2, intellect: 2 },
+      archer: { strength: 2, agility: 5, intellect: 2 },
+      wizard: { strength: 2, agility: 2, intellect: 5 }
+    },
 
-    // FIX: Если GameMaker прислал данные в виде текстовой строки, 
-    // парсим её в полноценный JavaScript объект
-    if (typeof body === "string") {
-        try {
-            body = JSON.parse(body);
-        } catch (e) {
-            return res.json({ error: "invalid json string" });
-        }
-    }
+    class_levels: {
+      warrior: 1,
+      archer: 1,
+      wizard: 1
+    },
 
-    const { name, data } = body;
+    class_exp: {
+      warrior: 0,
+      archer: 0,
+      wizard: 0
+    },
 
-    if (!name || !data) {
-        return res.json({ error: "no data" });
-    }
+    class_attr_points: {
+      warrior: 0,
+      archer: 0,
+      wizard: 0
+    },
 
-    const now = Date.now();
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  };
+}
 
-    // Защита от спама на сервере
-    if (lastUpdate[name] && now - lastUpdate[name] < 500) {
-        return res.json({ error: "too fast" });
-    }
+function parseBody(req) {
+  let body = req.body;
 
-    lastUpdate[name] = now;
+  if (typeof body === "string") {
+    const txt = body.trim();
+
+    if (!txt) return {};
 
     try {
-        const allowedFields = [
-    "gold",
-    "strength",
-    "agility",
-    "intellect",
-    "hp",
-    "max_hp",
-    "damage",
-    "class",
-    "armor",
-    "magic_res",
-    "attack_spd",
-    "kills",
-    "class_levels",
-    "class_exp",
-    "class_attr_points",
-    "class_stats"
+      body = JSON.parse(txt);
+    } catch {
+      return { __parseError: true };
+    }
+  }
+
+  if (!body || typeof body !== "object") return {};
+
+  return body;
+}
+
+function getNameFromBody(body) {
+  return normalizeName(
+    body.name ||
+    body.username ||
+    body.user ||
+    body.player ||
+    ""
+  );
+}
+
+function cleanValue(value, depth = 0) {
+  if (depth > 10) return null;
+
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0;
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return value.slice(0, 256);
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 100).map(v => cleanValue(v, depth + 1));
+  }
+
+  if (typeof value === "object") {
+    const obj = {};
+
+    for (const key of Object.keys(value)) {
+      if (key.startsWith("$")) continue;
+      if (key.includes(".")) continue;
+
+      const cleaned = cleanValue(value[key], depth + 1);
+      if (cleaned !== undefined) obj[key] = cleaned;
+    }
+
+    return obj;
+  }
+
+  return null;
+}
+
+function publicPlayer(player) {
+  if (!player) return null;
+
+  const copy = { ...player };
+  delete copy._id;
+  return copy;
+}
+
+const allowedFields = [
+  "class",
+  "gold",
+
+  "strength",
+  "agility",
+  "intellect",
+
+  "hp",
+  "max_hp",
+  "damage",
+  "armor",
+  "magic_res",
+  "attack_spd",
+  "kills",
+
+  "class_stats",
+  "class_levels",
+  "class_exp",
+  "class_attr_points"
 ];
 
-        let safeUpdate = {};
+/* =========================
+   ROUTES
+========================= */
 
-        // Очистка дробных чисел из GameMaker (875.0 -> 875)
-        const cleanGameMakerNumbers = (val) => {
-            if (typeof val === "number") {
-                return Number.isInteger(val) ? val : Math.round(val); 
-            }
-            if (val && typeof val === "object" && !Array.isArray(val)) {
-                let cleanedObj = {};
-                for (const k in val) {
-                    cleanedObj[k] = cleanGameMakerNumbers(val[k]);
-                }
-                return cleanedObj;
-            }
-            return val;
-        };
-
-        for (const key of allowedFields) {
-            if (data[key] !== undefined) {
-                safeUpdate[key] = cleanGameMakerNumbers(data[key]);
-            }
-        }
-
-        if (Object.keys(safeUpdate).length === 0) {
-            return res.json({ error: "nothing to update" });
-        }
-
-        const result = await playersCollection.findOneAndUpdate(
-            { username: name },
-            { $set: safeUpdate },
-            { returnDocument: "after" }
-        );
-
-        if (!result) {
-            console.log("UPDATE FAILED: Player not found in DB");
-            return res.json({ error: "player not found" });
-        }
-
-        // Универсальный фикс для старых и новых версий драйвера MongoDB
-        const updatedDocument = result.value ? result.value : result;
-
-        return res.json(updatedDocument);
-
-    } catch (err) {
-        console.error("UPDATE ERROR:", err);
-        return res.json({ error: "db error" });
-    }
+app.get("/", (req, res) => {
+  res.json({
+    ok: true,
+    name: "SunHero API",
+    endpoints: [
+      "GET /health",
+      "GET /api/players",
+      "GET /api/player/:name",
+      "POST /api/join",
+      "POST /api/update"
+    ]
+  });
 });
 
-/* =======================
+app.get("/health", async (req, res) => {
+  try {
+    const count = playersCollection
+      ? await playersCollection.countDocuments()
+      : 0;
+
+    res.json({
+      ok: true,
+      mongo: Boolean(playersCollection),
+      players: count,
+      time: nowIso()
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      error: "health error"
+    });
+  }
+});
+
+/* =========================
+   JOIN PLAYER
+========================= */
+
+app.post("/api/join", async (req, res) => {
+  const body = parseBody(req);
+
+  if (body.__parseError) {
+    return res.status(400).json({ error: "invalid json" });
+  }
+
+  const name = getNameFromBody(body);
+
+  if (!name) {
+    return res.status(400).json({ error: "no name" });
+  }
+
+  try {
+    const created = createPlayer(name);
+
+    const result = await playersCollection.findOneAndUpdate(
+      { username: name },
+      {
+        $setOnInsert: created,
+        $set: { updatedAt: nowIso() }
+      },
+      {
+        upsert: true,
+        returnDocument: "after"
+      }
+    );
+
+    return res.json(publicPlayer(result.value || result));
+  } catch (err) {
+    console.error("JOIN ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error"
+    });
+  }
+});
+
+/* =========================
+   GET ALL PLAYERS
+========================= */
+
+app.get("/api/players", async (req, res) => {
+  try {
+    const players = await playersCollection
+      .find({})
+      .sort({ updatedAt: -1, username: 1 })
+      .limit(100)
+      .toArray();
+
+    return res.json(players.map(publicPlayer));
+  } catch (err) {
+    console.error("PLAYERS ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error"
+    });
+  }
+});
+
+/* =========================
+   GET ONE PLAYER
+========================= */
+
+app.get("/api/player/:name", async (req, res) => {
+  const name = normalizeName(req.params.name);
+
+  if (!name) {
+    return res.status(400).json({ error: "no name" });
+  }
+
+  try {
+    const player = await playersCollection.findOne({ username: name });
+
+    if (!player) {
+      return res.status(404).json({ error: "not found" });
+    }
+
+    return res.json(publicPlayer(player));
+  } catch (err) {
+    console.error("PLAYER ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error"
+    });
+  }
+});
+
+/* =========================
+   UPDATE PLAYER
+========================= */
+
+app.post("/api/update", async (req, res) => {
+  const body = parseBody(req);
+
+  if (body.__parseError) {
+    return res.status(400).json({ error: "invalid json" });
+  }
+
+  const name = normalizeName(body.name || body.username);
+  const data = body.data;
+
+  if (!name || !data || typeof data !== "object") {
+    return res.status(400).json({
+      error: "no data"
+    });
+  }
+
+  const safeUpdate = {};
+
+  for (const key of allowedFields) {
+    if (data[key] !== undefined) {
+      safeUpdate[key] = cleanValue(data[key]);
+    }
+  }
+
+  safeUpdate.updatedAt = nowIso();
+
+  if (Object.keys(safeUpdate).length === 1) {
+    return res.status(400).json({
+      error: "nothing to update"
+    });
+  }
+
+  try {
+    const basePlayer = createPlayer(name);
+
+    const result = await playersCollection.findOneAndUpdate(
+      { username: name },
+      {
+        $setOnInsert: basePlayer,
+        $set: safeUpdate
+      },
+      {
+        upsert: true,
+        returnDocument: "after"
+      }
+    );
+
+    return res.json(publicPlayer(result.value || result));
+  } catch (err) {
+    console.error("UPDATE ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error"
+    });
+  }
+});
+
+/* =========================
    START SERVER
-======================= */
-const PORT = process.env.PORT || 10000;
+========================= */
 
 async function startServer() {
-    try {
-        const client = new MongoClient(MONGO_URI);
+  try {
+    const client = new MongoClient(MONGO_URI);
 
-        await client.connect();
+    await client.connect();
 
-        db = client.db("sunhero");
-        playersCollection = db.collection("players");
+    db = client.db("sunhero");
+    playersCollection = db.collection("players");
 
-        console.log("MongoDB connected");
+    await playersCollection.createIndex(
+      { username: 1 },
+      { unique: true }
+    );
 
-        app.listen(PORT, () => {
-            console.log("Server running on port " + PORT);
-        });
+    console.log("MongoDB connected");
 
-    } catch (err) {
-        console.error("MongoDB connection error:", err);
-    }
+    app.listen(PORT, () => {
+      console.log("SunHero API running on port " + PORT);
+    });
+  } catch (err) {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  }
 }
 
 startServer();
