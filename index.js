@@ -542,26 +542,57 @@ app.post("/api/update", async (req, res) => {
   }
 
   try {
-    const basePlayer = createPlayer(name);
+    /*
+      ВАЖНО:
+      Раньше тут был upsert с $setOnInsert: createPlayer(name)
+      и одновременно $set: safeUpdate.
+      Из-за одинаковых полей MongoDB мог давать конфликт и возвращался 500.
+      Теперь делаем безопасно:
+      1. Сначала пробуем обновить существующего игрока.
+      2. Если игрока нет — создаём нового.
+    */
 
-    const result = await playersCollection.findOneAndUpdate(
+    const updateResult = await playersCollection.findOneAndUpdate(
       { username: name },
       {
-        $setOnInsert: basePlayer,
         $set: safeUpdate
       },
       {
-        upsert: true,
         returnDocument: "after"
       }
     );
 
-    return res.json(publicPlayer(result.value || result));
+    const updatedPlayer = updateResult && updateResult.value !== undefined
+      ? updateResult.value
+      : updateResult;
+
+    if (updatedPlayer) {
+      return res.json(publicPlayer(updatedPlayer));
+    }
+
+    /*
+      Если игрока в базе нет, создаём его.
+      Это запасной вариант. Обычно игрок уже создан через !join.
+    */
+    const newPlayer = createPlayer(name);
+
+    for (const key of Object.keys(safeUpdate)) {
+      newPlayer[key] = safeUpdate[key];
+    }
+
+    const insertResult = await playersCollection.insertOne(newPlayer);
+
+    const createdPlayer = await playersCollection.findOne({
+      _id: insertResult.insertedId
+    });
+
+    return res.json(publicPlayer(createdPlayer));
   } catch (err) {
     console.error("UPDATE ERROR:", err);
 
     return res.status(500).json({
-      error: "db error"
+      error: "db error",
+      message: err.message
     });
   }
 });
