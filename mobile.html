@@ -1,42 +1,255 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
-<style>
-body { margin:0; background:#0e0c16; color:#e6d3a3; font-family:Georgia,serif; }
-.title { text-align:center; font-size:16px; color:#fbbf24; letter-spacing:2px;
-         padding:7px; border-bottom:1px solid rgba(251,191,36,.4); }
-.wrap { padding:8px 10px; }
-.who { text-align:center; font-size:14px; padding-bottom:4px; }
-.who b { color:#fff; }  .who span { color:#7ec8ff; font-size:11px; }
-.hpbar { background:#0a0a12; border:1px solid #333; border-radius:4px; height:18px;
-         margin:4px 0; position:relative; overflow:hidden; }
-.hpfill { background:linear-gradient(90deg,#c33,#3c3); height:100%; transition:width .4s; }
-.hptext { position:absolute; inset:0; text-align:center; font-size:11px; color:#fff;
-          text-shadow:1px 1px 1px #000; line-height:18px; }
-.grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 10px;
-        font-size:13px; padding:4px 0; }
-.grid .l { color:#c9b37a; }
-.gold { color:#ffd700; font-weight:bold; }  .pts { color:#7fff7f; font-weight:bold; }
-.w { color:#fff; font-weight:bold; }
-.btns { display:flex; flex-direction:column; gap:6px; padding-top:5px; }
-/* крупные кнопки: min-height 48px — стандарт для пальца */
-.btn { min-height:48px; border-radius:6px; padding:8px 10px; font-family:inherit;
-       font-size:15px; cursor:pointer; text-align:center; }
-.btn:active { filter:brightness(1.4); }
-.btn small { font-size:10px; opacity:.75; }
-.b-str { background:linear-gradient(180deg,#7a2222,#511414); color:#f5d27a; border:1px solid #a33; }
-.b-agi { background:linear-gradient(180deg,#226022,#143d14); color:#bdf5a3; border:1px solid #3a3; }
-.b-int { background:linear-gradient(180deg,#223a7a,#142451); color:#a3c8f5; border:1px solid #36a; }
-.hint { text-align:center; font-size:10px; color:#8a795a; padding-top:6px; min-height:14px; }
-.err { color:#ff7b7b; font-size:13px; text-align:center; padding:10px; }
-</style>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+
+  <title>SunHero RPG Mobile</title>
+
+  <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0e0c16;
+      --card: #171320;
+      --card2: #21182d;
+      --gold: #fbbf24;
+      --text: #f8e7b8;
+      --muted: #b8a574;
+      --red: #ef4444;
+      --green: #22c55e;
+      --blue: #38bdf8;
+      --purple: #a855f7;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      width: 100%;
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+
+    body.dark {
+      background: #0e0c16;
+      color: var(--text);
+    }
+
+    body.light {
+      background: #f4efe3;
+      color: #201522;
+    }
+
+    .app {
+      width: 100%;
+      padding: 8px;
+    }
+
+    .header {
+      text-align: center;
+      color: var(--gold);
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      font-size: 16px;
+      padding: 7px 4px 9px;
+      border-bottom: 1px solid rgba(251, 191, 36, 0.35);
+      margin-bottom: 8px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--card), var(--card2));
+      border: 1px solid rgba(251, 191, 36, 0.22);
+      border-radius: 14px;
+      padding: 10px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .name {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 900;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .class {
+      color: var(--blue);
+      font-size: 11px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .hpbar {
+      position: relative;
+      height: 20px;
+      border-radius: 999px;
+      background: #090711;
+      border: 1px solid rgba(255,255,255,0.15);
+      overflow: hidden;
+      margin: 7px 0 9px;
+    }
+
+    .hpfill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #dc2626, #22c55e);
+      transition: width 0.3s ease;
+    }
+
+    .hptext {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin: 8px 0;
+    }
+
+    .stat {
+      background: rgba(0,0,0,0.24);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 7px;
+      min-height: 50px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 10px;
+      margin-bottom: 3px;
+    }
+
+    .value {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .value.gold {
+      color: var(--gold);
+    }
+
+    .value.points {
+      color: #86efac;
+    }
+
+    .btns {
+      display: grid;
+      gap: 7px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      width: 100%;
+      min-height: 50px;
+      border: 0;
+      border-radius: 12px;
+      padding: 9px 10px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+      filter: brightness(1.15);
+    }
+
+    .btn small {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      opacity: 0.82;
+      margin-top: 2px;
+    }
+
+    .b-str {
+      background: linear-gradient(135deg, #7f1d1d, #ef4444);
+    }
+
+    .b-agi {
+      background: linear-gradient(135deg, #064e3b, #22c55e);
+    }
+
+    .b-int {
+      background: linear-gradient(135deg, #312e81, #8b5cf6);
+    }
+
+    .hint {
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .error,
+    .loading,
+    .empty {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      line-height: 1.4;
+      font-size: 12px;
+    }
+
+    .error {
+      color: #fecaca;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .mini {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 10px;
+      text-align: center;
+      opacity: 0.75;
+    }
+  </style>
 </head>
+
 <body>
-<div class="title">⚔ SUN HERO</div>
-<div class="wrap"><div id="ui">Loading...</div></div>
-<script src="mobile.js"></script>
+  <div class="app">
+    <div class="header">⚔ SUN HERO ⚔</div>
+    <div id="ui" class="loading">Загрузка...</div>
+  </div>
+
+  <script src="mobile.js"></script>
 </body>
 </html>
