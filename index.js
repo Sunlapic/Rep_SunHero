@@ -68,7 +68,21 @@ function verifyExtensionJwt(req, res, next) {
     });
   }
 }
+function requireBotSecret(req, res, next) {
+  if (!BOT_SECRET) {
+    return next();
+  }
 
+  const value = req.headers["x-bot-secret"];
+
+  if (value !== BOT_SECRET) {
+    return res.status(403).json({
+      error: "bad bot secret"
+    });
+  }
+
+  return next();
+}
 function normalizeTwitchId(value) {
   if (value === undefined || value === null) return "";
 
