@@ -315,7 +315,7 @@ app.get("/health", async (req, res) => {
    JOIN PLAYER
 ========================= */
 
-app.post("/api/join", async (req, res) => {
+app.post("/api/join", requireBotSecret, async (req, res) => {
   const body = parseBody(req);
 
   if (body.__parseError) {
@@ -324,18 +324,40 @@ app.post("/api/join", async (req, res) => {
 
   const name = getNameFromBody(body);
 
+  const twitchUserId = normalizeTwitchId(
+    body.twitchUserId ||
+    body.twitch_user_id ||
+    body.userId ||
+    body.user_id ||
+    ""
+  );
+
   if (!name) {
     return res.status(400).json({ error: "no name" });
+  }
+
+  if (!twitchUserId) {
+    return res.status(400).json({
+      error: "no twitch user id"
+    });
   }
 
   try {
     const created = createPlayer(name);
 
+    created.twitch_user_id = twitchUserId;
+    created.twitchLinkedAt = nowIso();
+
     const result = await playersCollection.findOneAndUpdate(
-      { username: name },
+      { twitch_user_id: twitchUserId },
       {
         $setOnInsert: created,
-        $set: { updatedAt: nowIso() }
+        $set: {
+          username: name,
+          twitch_user_id: twitchUserId,
+          twitchLinkedAt: nowIso(),
+          updatedAt: nowIso()
+        }
       },
       {
         upsert: true,
