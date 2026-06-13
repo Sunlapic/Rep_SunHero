@@ -1,120 +1,345 @@
 const API = "https://rep-sunhero.onrender.com";
+const POLL_MS = 5000;
+const FETCH_TIMEOUT_MS = 12000;
+
 const ui = document.getElementById("ui");
 
-// ── Безопасная функция подсказки ──
+let isLoading = false;
+let pollTimer = null;
+let lastPlayerName = null;
+
+function qs(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+const forcedName = qs("name");
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function toNum(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function fmt(value, digits = 0) {
+  const n = Number(value);
+
+  if (!Number.isFinite(n)) return "-";
+
+  if (Number.isInteger(n)) return String(n);
+
+  return n
+    .toFixed(digits)
+    .replace(/\.?0+$/, "");
+}
+
+function hpPercent(p) {
+  const hp = toNum(p.hp, 0);
+  const max = toNum(p.max_hp, 0);
+
+  if (max <= 0) return 0;
+
+  return clamp(Math.round((hp / max) * 100), 0, 100);
+}
+
+function attackPerSecond(p) {
+  const cooldownFrames = toNum(p.attack_spd, 0);
+
+  if (cooldownFrames <= 0) return "-";
+
+  return fmt(60 / cooldownFrames, 1);
+}
+
+function currentClass(p) {
+  return p.class || "warrior";
+}
+
+function currentLevel(p) {
+  const cls = currentClass(p);
+  return toNum(p.class_levels && p.class_levels[cls], 1);
+}
+
+function currentPoints(p) {
+  const cls = currentClass(p);
+  return toNum(p.class_attr_points && p.class_attr_points[cls], 0);
+}
+
+function statHints(p) {
+  const cls = currentClass(p);
+
+  const h = {
+    str: "+10 HP +1.5 атк",
+    agi: "+1 атк +уворот",
+    int: "+1 атк +0.5 МЗ"
+  };
+
+  if (cls === "warrior") {
+    h.str = "+14 HP +2 атк +броня";
+  }
+
+  if (cls === "archer") {
+    h.agi = "+2 атк +скорость +уворот";
+  }
+
+  if (cls === "wizard") {
+    h.int = "+2.5 атк +МЗ";
+  }
+
+  return h;
+}
+
 function showHint(text) {
   const el = document.getElementById("hint");
   if (el) el.textContent = text;
 }
 
-// ── Fallback копирование (работает на мобиле) ──
-function copyCmd(cmd) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(cmd)
-      .then(() => showHint("Скопировано: " + cmd + " — вставь в чат!"))
-      .catch(() => fallbackCopy(cmd));
-  } else {
+async function copyCommand(cmd) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(cmd);
+      showHint("✓ Скопировано: " + cmd + " — вставь в чат");
+      return;
+    }
+
+    fallbackCopy(cmd);
+  } catch {
     fallbackCopy(cmd);
   }
 }
 
 function fallbackCopy(cmd) {
-  const ta = document.createElement("textarea");
-  ta.value = cmd;
-  ta.style.cssText = "position:fixed;opacity:0;top:0;left:0;";
-  document.body.appendChild(ta);
-  ta.focus(); ta.select();
   try {
+    const ta = document.createElement("textarea");
+
+    ta.value = cmd;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "0";
+
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+
     document.execCommand("copy");
-    showHint("Скопировано: " + cmd + " — вставь в чат!");
+    document.body.removeChild(ta);
+
+    showHint("✓ Скопировано: " + cmd + " — вставь в чат");
   } catch {
     showHint("Напиши в чат: " + cmd);
   }
-  document.body.removeChild(ta);
 }
 
-// ── Загрузка с timeout + retry ──
-let loadTimer = null;
-
-async function load() {
+async function fetchJson(url, timeoutMs = FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
-  const abortTimeout = setTimeout(() => controller.abort(), 10000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(API + "/api/players", {
+    const res = await fetch(url, {
+      method: "GET",
       signal: controller.signal,
-      headers: { "Accept": "application/json" }
+      headers: {
+        "Accept": "application/json"
+      },
+      cache: "no-store"
     });
-    clearTimeout(abortTimeout);
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    const list = Array.isArray(data) ? data : Object.values(data);
-    if (!list || list.length === 0) {
-      ui.innerHTML = '<p class="hint">Нет игроков. Напишите !join</p>';
-      return;
+
+    if (!res.ok) {
+      throw new Error("HTTP " + res.status);
     }
-    render(list[0]);
-  } catch (e) {
-    clearTimeout(abortTimeout);
-    const msg = e.name === "AbortError" ? "Timeout (сервер спит, повтор...)" : e.message;
-    ui.innerHTML = '<p class="error">Ошибка: ' + msg + '</p>';
-    if (e.name === "AbortError") {
-      loadTimer = setTimeout(load, 5000);
-    }
+
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-function statHints(p) {
-  const c = p.class || "warrior";
-  const h = { str:"+10 HP +1.5 атк", agi:"+1 атк +увернт", int:"+1 атк +0.5 МЗ" };
-  if (c === "warrior") h.str = "+14 HP +2 атк +0.8 брн";
-  if (c === "archer")  h.agi = "+2 атк +скорость +уворот";
-  if (c === "wizard")  h.int = "+2.5 атк +0.8 МЗ";
-  return h;
+function playerUrl() {
+  if (forcedName) {
+    return API + "/api/player/" + encodeURIComponent(forcedName);
+  }
+
+  return API + "/api/players";
 }
 
-function render(p) {
-  const lvl  = (p.class_levels && p.class_levels[p.class]) || 1;
-  const pts  = (p.class_attr_points && p.class_attr_points[p.class]) || 0;
-  const hp   = p.max_hp ? Math.round(p.hp / p.max_hp * 100) : 0;
-  const aps  = p.attack_spd ? (60 / p.attack_spd).toFixed(1) : "-";
-  const h    = statHints(p);
+async function getPlayer() {
+  const data = await fetchJson(playerUrl());
 
+  if (Array.isArray(data)) {
+    if (data.length === 0) return null;
+    return data[0];
+  }
+
+  if (data && data.error) {
+    throw new Error(data.error);
+  }
+
+  return data;
+}
+
+function renderEmpty() {
+  ui.className = "empty";
   ui.innerHTML = `
-    <div class="card">
-      <div class="name">${p.username ?? "-"}</div>
-      <div class="cls">${p.class ?? "-"} · ${lvl} ур</div>
-      <div class="hp-bar"><div class="hp-fill" style="width:${hp}%"></div></div>
-      <div class="hp-text">❤ ${p.hp ?? 0} / ${p.max_hp ?? 0}</div>
-      <div class="row">🪙 Золото <b>${p.gold ?? 0}</b></div>
-      <div class="row">⚔ Атака · СкА <b>${p.damage ?? 0} · ${aps}/с</b></div>
-      <div class="row">🛡 Броня · МЗ <b>${p.armor ?? 0} · ${p.magic_res ?? 0}</b></div>
-      <div class="row">✨ Очки атрибутов <b>${pts}</b></div>
-      <div class="stats">
-        <button class="stat-btn" onclick="copyCmd('!str')">
-          💪 STR ${p.strength ?? 0}<small>${h.str}</small>
-        </button>
-        <button class="stat-btn" onclick="copyCmd('!agi')">
-          🏃 AGI ${p.agility ?? 0}<small>${h.agi}</small>
-        </button>
-        <button class="stat-btn" onclick="copyCmd('!int')">
-          🔮 INT ${p.intellect ?? 0}<small>${h.int}</small>
-        </button>
-      </div>
-      <div id="hint" class="hint">кнопка копирует команду — вставь в чат</div>
+    <div>
+      Нет игроков.<br>
+      Напишите <b>!join</b> в чат.
     </div>
+    <div class="mini">Ожидание данных от игры...</div>
   `;
 }
 
-// Инициализация через Twitch Helper
-if (window.Twitch && window.Twitch.ext) {
-  window.Twitch.ext.onAuthorized(function() { load(); });
-  window.Twitch.ext.onContext(function(ctx) {
-    document.body.className = ctx.theme === "dark" ? "dark" : "light";
-  });
-} else {
-  // Fallback если helper не загрузился
-  load();
+function renderError(err) {
+  const msg = err && err.name === "AbortError"
+    ? "Timeout: сервер долго отвечает. Возможно Render просыпается."
+    : (err && err.message ? err.message : "unknown error");
+
+  ui.className = "error";
+  ui.innerHTML = `
+    <div><b>Ошибка загрузки</b></div>
+    <div>${escapeHtml(msg)}</div>
+    <div class="mini">Проверить backend: /health</div>
+  `;
 }
 
-setInterval(load, 5000);
+function renderPlayer(p) {
+  lastPlayerName = p.username || lastPlayerName;
+
+  const cls = currentClass(p);
+  const lvl = currentLevel(p);
+  const pts = currentPoints(p);
+  const hpPct = hpPercent(p);
+  const aps = attackPerSecond(p);
+  const hints = statHints(p);
+
+  ui.className = "";
+  ui.innerHTML = `
+    <div class="card">
+      <div class="top">
+        <div class="name">${escapeHtml(p.username || "-")}</div>
+        <div class="class">${escapeHtml(cls)} · ${fmt(lvl)} ур.</div>
+      </div>
+
+      <div class="hpbar">
+        <div class="hpfill" style="width:${hpPct}%"></div>
+        <div class="hptext">❤ ${fmt(p.hp)} / ${fmt(p.max_hp)}</div>
+      </div>
+
+      <div class="grid">
+        <div class="stat">
+          <div class="label">Золото</div>
+          <div class="value gold">🪙 ${fmt(p.gold)}</div>
+        </div>
+
+        <div class="stat">
+          <div class="label">Атака · СкА</div>
+          <div class="value">⚔ ${fmt(p.damage, 1)} · ${aps}/с</div>
+        </div>
+
+        <div class="stat">
+          <div class="label">Броня · МЗ</div>
+          <div class="value">🛡 ${fmt(p.armor, 1)} · ${fmt(p.magic_res, 1)}</div>
+        </div>
+
+        <div class="stat">
+          <div class="label">Очки атрибутов</div>
+          <div class="value points">✨ ${fmt(pts)}</div>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="btn b-str" data-cmd="!str 1">
+          СИЛА ${fmt(p.strength)}
+          <small>${escapeHtml(hints.str)}</small>
+        </button>
+
+        <button class="btn b-agi" data-cmd="!agi 1">
+          ЛОВКОСТЬ ${fmt(p.agility)}
+          <small>${escapeHtml(hints.agi)}</small>
+        </button>
+
+        <button class="btn b-int" data-cmd="!int 1">
+          ИНТЕЛЛЕКТ ${fmt(p.intellect)}
+          <small>${escapeHtml(hints.int)}</small>
+        </button>
+      </div>
+
+      <div class="hint" id="hint">
+        Нажми кнопку — команда скопируется. Потом вставь её в чат.
+      </div>
+
+      <div class="mini">
+        Обновление каждые ${Math.round(POLL_MS / 1000)} сек.
+      </div>
+    </div>
+  `;
+
+  bindButtons();
+}
+
+function bindButtons() {
+  document.querySelectorAll("[data-cmd]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      copyCommand(btn.dataset.cmd);
+    });
+  });
+}
+
+async function load() {
+  if (isLoading) return;
+
+  isLoading = true;
+
+  try {
+    const player = await getPlayer();
+
+    if (!player) {
+      renderEmpty();
+    } else {
+      renderPlayer(player);
+    }
+  } catch (err) {
+    renderError(err);
+  } finally {
+    isLoading = false;
+  }
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+
+  load();
+  pollTimer = setInterval(load, POLL_MS);
+}
+
+function initTwitch() {
+  if (window.Twitch && window.Twitch.ext) {
+    window.Twitch.ext.onAuthorized(() => {
+      startPolling();
+    });
+
+    window.Twitch.ext.onContext((ctx) => {
+      if (ctx && ctx.theme) {
+        document.body.className = ctx.theme === "light" ? "light" : "dark";
+      }
+    });
+
+    setTimeout(() => {
+      if (!pollTimer) startPolling();
+    }, 1500);
+  } else {
+    startPolling();
+  }
+}
+
+initTwitch();
