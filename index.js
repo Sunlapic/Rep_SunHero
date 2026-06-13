@@ -14,8 +14,13 @@ if (!MONGO_URI) {
 
 let db;
 let playersCollection;
+
 const TWITCH_EXTENSION_SECRET = process.env.TWITCH_EXTENSION_SECRET;
 const BOT_SECRET = process.env.BOT_SECRET || "";
+
+/* =========================
+   TWITCH JWT / BOT SECRET
+========================= */
 
 function getExtensionSecretBuffer() {
   if (!TWITCH_EXTENSION_SECRET) {
@@ -68,6 +73,7 @@ function verifyExtensionJwt(req, res, next) {
     });
   }
 }
+
 function requireBotSecret(req, res, next) {
   if (!BOT_SECRET) {
     return next();
@@ -83,11 +89,13 @@ function requireBotSecret(req, res, next) {
 
   return next();
 }
+
 function normalizeTwitchId(value) {
   if (value === undefined || value === null) return "";
 
   return String(value).trim().replace(/\D/g, "").slice(0, 32);
 }
+
 /* =========================
    MIDDLEWARE
 ========================= */
@@ -131,17 +139,26 @@ function createPlayer(name) {
     class: "warrior",
 
     gold: 0,
+
     strength: 5,
     agility: 2,
     intellect: 2,
 
     max_hp: 100,
     hp: 100,
+
     damage: 10,
     armor: 0,
     magic_res: 0,
     attack_spd: 60,
+
     kills: 0,
+
+    dodge: 0,
+    dodge_chance: 0,
+    dodge_percent: 0,
+    evasion: 0,
+    evasion_percent: 0,
 
     class_stats: {
       warrior: { strength: 5, agility: 2, intellect: 2 },
@@ -250,6 +267,10 @@ function publicPlayer(player) {
   return copy;
 }
 
+/* =========================
+   ALLOWED UPDATE FIELDS
+========================= */
+
 const allowedFields = [
   "class",
   "gold",
@@ -266,6 +287,12 @@ const allowedFields = [
   "attack_spd",
   "kills",
 
+  "dodge",
+  "dodge_chance",
+  "dodge_percent",
+  "evasion",
+  "evasion_percent",
+
   "class_stats",
   "class_levels",
   "class_exp",
@@ -281,13 +308,13 @@ app.get("/", (req, res) => {
     ok: true,
     name: "SunHero API",
     endpoints: [
-  "GET /health",
-  "GET /api/players",
-  "GET /api/player/:name",
-  "GET /api/me",
-  "POST /api/join",
-  "POST /api/update"
-]
+      "GET /health",
+      "GET /api/players",
+      "GET /api/player/:name",
+      "GET /api/me",
+      "POST /api/join",
+      "POST /api/update"
+    ]
   });
 });
 
@@ -301,6 +328,8 @@ app.get("/health", async (req, res) => {
       ok: true,
       mongo: Boolean(playersCollection),
       players: count,
+      twitchSecret: Boolean(process.env.TWITCH_EXTENSION_SECRET),
+      botSecret: Boolean(process.env.BOT_SECRET),
       time: nowIso()
     });
   } catch (err) {
@@ -343,13 +372,6 @@ app.post("/api/join", requireBotSecret, async (req, res) => {
   }
 
   try {
-    /*
-      ВАЖНО:
-      Сначала ищем игрока по twitch_user_id.
-      Потом ищем старого игрока по username.
-      Это нужно, чтобы не создавать дубль старого игрока.
-    */
-
     const byTwitchId = await playersCollection.findOne({
       twitch_user_id: twitchUserId
     });
@@ -358,10 +380,6 @@ app.post("/api/join", requireBotSecret, async (req, res) => {
       username: name
     });
 
-    /*
-      Если вдруг twitch_user_id уже привязан к одному игроку,
-      а username принадлежит другому — это конфликт.
-    */
     if (
       byTwitchId &&
       byUsername &&
@@ -374,9 +392,6 @@ app.post("/api/join", requireBotSecret, async (req, res) => {
 
     const existingPlayer = byTwitchId || byUsername;
 
-    /*
-      Если игрок уже есть — просто привязываем к нему Twitch ID.
-    */
     if (existingPlayer) {
       const result = await playersCollection.findOneAndUpdate(
         { _id: existingPlayer._id },
@@ -396,9 +411,6 @@ app.post("/api/join", requireBotSecret, async (req, res) => {
       return res.json(publicPlayer(result.value || result));
     }
 
-    /*
-      Если игрока ещё нет — создаём нового.
-    */
     const created = createPlayer(name);
 
     created.twitch_user_id = twitchUserId;
@@ -415,10 +427,12 @@ app.post("/api/join", requireBotSecret, async (req, res) => {
     console.error("JOIN ERROR:", err);
 
     return res.status(500).json({
-      error: "db error"
+      error: "db error",
+      message: err.message
     });
   }
 });
+
 /* =========================
    GET ALL PLAYERS
 ========================= */
@@ -436,7 +450,8 @@ app.get("/api/players", async (req, res) => {
     console.error("PLAYERS ERROR:", err);
 
     return res.status(500).json({
-      error: "db error"
+      error: "db error",
+      message: err.message
     });
   }
 });
@@ -464,7 +479,8 @@ app.get("/api/player/:name", async (req, res) => {
     console.error("PLAYER ERROR:", err);
 
     return res.status(500).json({
-      error: "db error"
+      error: "db error",
+      message: err.message
     });
   }
 });
@@ -500,7 +516,8 @@ app.get("/api/me", verifyExtensionJwt, async (req, res) => {
     console.error("ME ERROR:", err);
 
     return res.status(500).json({
-      error: "db error"
+      error: "db error",
+      message: err.message
     });
   }
 });
@@ -542,16 +559,6 @@ app.post("/api/update", async (req, res) => {
   }
 
   try {
-    /*
-      ВАЖНО:
-      Раньше тут был upsert с $setOnInsert: createPlayer(name)
-      и одновременно $set: safeUpdate.
-      Из-за одинаковых полей MongoDB мог давать конфликт и возвращался 500.
-      Теперь делаем безопасно:
-      1. Сначала пробуем обновить существующего игрока.
-      2. Если игрока нет — создаём нового.
-    */
-
     const updateResult = await playersCollection.findOneAndUpdate(
       { username: name },
       {
@@ -570,10 +577,6 @@ app.post("/api/update", async (req, res) => {
       return res.json(publicPlayer(updatedPlayer));
     }
 
-    /*
-      Если игрока в базе нет, создаём его.
-      Это запасной вариант. Обычно игрок уже создан через !join.
-    */
     const newPlayer = createPlayer(name);
 
     for (const key of Object.keys(safeUpdate)) {
@@ -614,9 +617,10 @@ async function startServer() {
       { username: 1 },
       { unique: true }
     );
+
     await playersCollection.createIndex(
-     { twitch_user_id: 1 },
-     { unique: true, sparse: true }
+      { twitch_user_id: 1 },
+      { unique: true, sparse: true }
     );
 
     console.log("MongoDB connected");
