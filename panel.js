@@ -10,8 +10,8 @@
   var twitchToken = "";
   var twitchReady = false;
 
-  var isLoading = false;
   var pollTimer = null;
+  var currentXhr = null;
 
   var firstLoadDone = false;
   var lastRenderKey = "";
@@ -29,9 +29,7 @@
   }
 
   function escapeHtml(value) {
-    if (value === null || value === undefined) {
-      return "";
-    }
+    if (value === null || value === undefined) return "";
 
     return String(value).replace(/[&<>"']/g, function (ch) {
       if (ch === "&") return "&amp;";
@@ -92,6 +90,45 @@
     return fmt(60 / cooldownFrames, 1);
   }
 
+  function firstNumber(p, names, fallback) {
+    for (var i = 0; i < names.length; i++) {
+      var key = names[i];
+
+      if (p && p[key] !== undefined && p[key] !== null) {
+        var n = Number(p[key]);
+
+        if (isFinite(n) && !isNaN(n)) {
+          return n;
+        }
+      }
+    }
+
+    return fallback || 0;
+  }
+
+  function dodgePercent(p) {
+    var raw = firstNumber(p, [
+      "dodge_percent",
+      "dodgePercent",
+      "dodge_chance",
+      "dodgeChance",
+      "evasion_percent",
+      "evasionPercent",
+      "evasion",
+      "dodge"
+    ], 0);
+
+    /*
+      Если пришло 0.40 — это chance.
+      Если пришло 40 — это уже percent.
+    */
+    if (raw > 0 && raw <= 1) {
+      raw = raw * 100;
+    }
+
+    return fmt(raw, 1) + "%";
+  }
+
   function currentClass(p) {
     return p["class"] || "warrior";
   }
@@ -120,21 +157,21 @@
     var cls = currentClass(p);
 
     var h = {
-      str: "+10 HP +1.5 атк",
-      agi: "+1 атк +уворот",
-      int: "+1 атк +0.5 МЗ"
+      str: "+10 HP +1.5 атаки",
+      agi: "+1 атака +уворот",
+      int: "+1 атака +0.5 маг. защиты"
     };
 
     if (cls === "warrior") {
-      h.str = "+14 HP +2 атк +броня";
+      h.str = "+14 HP +2 атаки +броня";
     }
 
     if (cls === "archer") {
-      h.agi = "+2 атк +скорость +уворот";
+      h.agi = "+2 атаки +скорость +уворот";
     }
 
     if (cls === "wizard") {
-      h.int = "+2.5 атк +МЗ";
+      h.int = "+2.5 атаки +маг. защита";
     }
 
     return h;
@@ -142,8 +179,8 @@
 
   function playerKey(p) {
     /*
-      Если эти данные не изменились — панель НЕ перерисовывается.
-      Поэтому больше не будет мигания каждые 5 секунд.
+      Если эти данные не изменились — панель не перерисовывается.
+      Это убирает мигание.
     */
     return JSON.stringify({
       username: p.username,
@@ -159,15 +196,22 @@
       magic_res: p.magic_res,
       attack_spd: p.attack_spd,
 
+      dodge: p.dodge,
+      dodge_chance: p.dodge_chance,
+      dodge_percent: p.dodge_percent,
+      evasion: p.evasion,
+      evasion_percent: p.evasion_percent,
+
       strength: p.strength,
       agility: p.agility,
       intellect: p.intellect,
 
       class_levels: p.class_levels,
-      class_attr_points: p.class_attr_points,
       class_exp: p.class_exp,
+      class_attr_points: p.class_attr_points,
 
-      kills: p.kills
+      kills: p.kills,
+      updatedAt: p.updatedAt
     });
   }
 
@@ -210,7 +254,6 @@
       ta.style.top = "0";
 
       document.body.appendChild(ta);
-
       ta.focus();
       ta.select();
 
@@ -224,14 +267,126 @@
     }
   }
 
-  function requestJsonWithJwt(url, done, fail) {
+  function sendAction(stat, amount) {
+    if (!twitchReady || !twitchToken) {
+      showHint("Twitch ещё не готов. Попробуй через секунду.");
+      return;
+    }
+
     var xhr = new XMLHttpRequest();
     var finished = false;
+
+    function done(message) {
+      if (finished) return;
+
+      finished = true;
+      showHint(message);
+    }
+
+    try {
+      xhr.open("POST", API + "/api/action", true);
+      xhr.timeout = TIMEOUT_MS;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+
+        var data = null;
+
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch (e) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          done("✓ Команда отправлена в игру");
+
+          /*
+            GameMaker забирает action примерно раз в 1.5 сек,
+            затем сохраняет игрока, затем панель читает /api/me.
+            Через 2 сек делаем тихую проверку.
+          */
+          setTimeout(function () {
+            lastRenderKey = "";
+            load();
+          }, 2000);
+
+          return;
+        }
+
+        if (data && data.needJoin) {
+          done("Сначала напиши !join в чат");
+          return;
+        }
+
+        if (data && data.needIdentity) {
+          done("Нужно разрешить Twitch ID");
+          return;
+        }
+
+        if (data && data.error === "too many pending actions") {
+          done("Слишком много команд в очереди. Подожди.");
+          return;
+        }
+
+        if (data && data.error) {
+          done("Ошибка: " + data.error);
+          return;
+        }
+
+        done("Ошибка отправки команды");
+      };
+
+      xhr.onerror = function () {
+        done("Ошибка сети");
+      };
+
+      xhr.ontimeout = function () {
+        done("Timeout отправки");
+      };
+
+      xhr.send(JSON.stringify({
+        stat: stat,
+        amount: amount || 1
+      }));
+    } catch (e) {
+      done("Ошибка: " + e.message);
+    }
+  }
+
+  function requestJsonWithJwt(url, done, fail) {
+    /*
+      Если предыдущий запрос ещё висит — отменяем.
+      Это защищает от залипания polling.
+    */
+    if (currentXhr) {
+      try {
+        currentXhr.abort();
+      } catch (e) {}
+
+      currentXhr = null;
+    }
+
+    var xhr = new XMLHttpRequest();
+    currentXhr = xhr;
+
+    var finished = false;
+
+    function cleanup() {
+      if (currentXhr === xhr) {
+        currentXhr = null;
+      }
+    }
 
     function endError(message) {
       if (finished) return;
 
       finished = true;
+      cleanup();
       fail(new Error(message));
     }
 
@@ -239,6 +394,7 @@
       if (finished) return;
 
       finished = true;
+      cleanup();
       done(data);
     }
 
@@ -253,9 +409,7 @@
       }
 
       xhr.onreadystatechange = function () {
-        if (xhr.readyState !== 4 || finished) {
-          return;
-        }
+        if (xhr.readyState !== 4 || finished) return;
 
         var data = null;
 
@@ -265,14 +419,6 @@
           data = null;
         }
 
-        /*
-          Важно:
-          Даже если backend вернул 401 или 404,
-          мы всё равно пытаемся прочитать JSON.
-          Там могут быть поля:
-          needIdentity: true
-          needJoin: true
-        */
         if (xhr.status < 200 || xhr.status >= 300) {
           if (data) {
             endOk(data);
@@ -299,6 +445,10 @@
         endError("Timeout: сервер не ответил за " + Math.round(TIMEOUT_MS / 1000) + " сек.");
       };
 
+      xhr.onabort = function () {
+        cleanup();
+      };
+
       xhr.send(null);
     } catch (e) {
       endError(e.message || "XHR error");
@@ -320,9 +470,7 @@
   function renderNeedIdentity() {
     var key = "need-identity";
 
-    if (lastRenderKey === key) {
-      return;
-    }
+    if (lastRenderKey === key) return;
 
     lastRenderKey = key;
     lastErrorKey = "";
@@ -359,9 +507,7 @@
   function renderNeedJoin() {
     var key = "need-join";
 
-    if (lastRenderKey === key) {
-      return;
-    }
+    if (lastRenderKey === key) return;
 
     lastRenderKey = key;
     lastErrorKey = "";
@@ -382,22 +528,19 @@
 
   function renderError(err) {
     var msg = err && err.name === "AbortError"
-      ? "Timeout: сервер долго отвечает. Возможно Render просыпается."
+      ? "Timeout: сервер долго отвечает."
       : (err && err.message ? err.message : "unknown error");
 
     var key = "error:" + msg;
 
-    if (lastErrorKey === key && firstLoadDone) {
-      return;
-    }
+    if (lastErrorKey === key && firstLoadDone) return;
 
     lastErrorKey = key;
     lastRenderKey = key;
 
     setUI(
       '<div><b>Ошибка загрузки</b></div>' +
-      '<div>' + escapeHtml(msg) + '</div>' +
-      '<div class="mini">Backend: rep-sunhero.onrender.com</div>',
+      '<div>' + escapeHtml(msg) + '</div>',
       "error"
     );
   }
@@ -406,12 +549,10 @@
     var key = playerKey(p);
 
     /*
-      Если данные не изменились — вообще ничего не трогаем.
-      Это убирает мигание.
+      Если данные не изменились — HTML не трогаем.
+      Если изменились — перерисовываем.
     */
-    if (lastRenderKey === key) {
-      return;
-    }
+    if (lastRenderKey === key) return;
 
     lastRenderKey = key;
     lastErrorKey = "";
@@ -421,6 +562,7 @@
     var pts = currentPoints(p);
     var hpPct = hpPercent(p);
     var aps = attackPerSecond(p);
+    var dodge = dodgePercent(p);
     var hints = statHints(p);
 
     setUI(
@@ -436,43 +578,60 @@
           '<div class="hptext">❤ ' + fmt(p.hp) + ' / ' + fmt(p.max_hp) + '</div>' +
         '</div>' +
 
-        '<div class="grid">' +
+        '<div class="stat-list">' +
 
-          '<div class="stat">' +
-            '<div class="label">Золото</div>' +
-            '<div class="value gold">🪙 ' + fmt(p.gold) + '</div>' +
+          '<div class="stat-line">' +
+            '<div class="stat-name">Золото</div>' +
+            '<div class="stat-value gold">🪙 ' + fmt(p.gold) + '</div>' +
           '</div>' +
 
-          '<div class="stat">' +
-            '<div class="label">Атака · СкА</div>' +
-            '<div class="value">⚔ ' + fmt(p.damage, 1) + ' · ' + aps + '/с</div>' +
+          '<div class="stat-line">' +
+            '<div class="stat-name">Атака</div>' +
+            '<div class="stat-value">⚔ ' + fmt(p.damage, 1) + '</div>' +
           '</div>' +
 
-          '<div class="stat">' +
-            '<div class="label">Броня · МЗ</div>' +
-            '<div class="value">🛡 ' + fmt(p.armor, 1) + ' · ' + fmt(p.magic_res, 1) + '</div>' +
+          '<div class="stat-line">' +
+            '<div class="stat-name">Скорость атаки</div>' +
+            '<div class="stat-value">' + aps + '/с</div>' +
           '</div>' +
 
-          '<div class="stat">' +
-            '<div class="label">Очки атрибутов</div>' +
-            '<div class="value points">✨ ' + fmt(pts) + '</div>' +
+          '<div class="stat-line">' +
+            '<div class="stat-name">Защита</div>' +
+            '<div class="stat-value">🛡 ' + fmt(p.armor, 1) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Маг. защита</div>' +
+            '<div class="stat-value">✦ ' + fmt(p.magic_res, 1) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Уворот</div>' +
+            '<div class="stat-value">💨 ' + dodge + '</div>' +
           '</div>' +
 
         '</div>' +
 
+        '<div class="attr-points-box">' +
+          '<div class="attr-points-label">Очки атрибутов</div>' +
+          '<div class="attr-points-value">✨ ' + fmt(pts) + '</div>' +
+        '</div>' +
+
+        '<div class="attr-title">Атрибуты</div>' +
+
         '<div class="btns">' +
 
-          '<button class="btn b-str" data-cmd="!str 1">' +
+          '<button class="btn b-str" data-stat="str" data-amount="1">' +
             'СИЛА ' + fmt(p.strength) +
             '<small>' + escapeHtml(hints.str) + '</small>' +
           '</button>' +
 
-          '<button class="btn b-agi" data-cmd="!agi 1">' +
+          '<button class="btn b-agi" data-stat="agi" data-amount="1">' +
             'ЛОВКОСТЬ ' + fmt(p.agility) +
             '<small>' + escapeHtml(hints.agi) + '</small>' +
           '</button>' +
 
-          '<button class="btn b-int" data-cmd="!int 1">' +
+          '<button class="btn b-int" data-stat="int" data-amount="1">' +
             'ИНТЕЛЛЕКТ ' + fmt(p.intellect) +
             '<small>' + escapeHtml(hints.int) + '</small>' +
           '</button>' +
@@ -480,11 +639,7 @@
         '</div>' +
 
         '<div class="hint" id="hint">' +
-          'Нажми кнопку — команда скопируется. Потом вставь её в чат.' +
-        '</div>' +
-
-        '<div class="mini">' +
-          'Панель обновляется в фоне. Перерисовка только при изменении данных.' +
+          'Нажми кнопку — команда отправится в игру.' +
         '</div>' +
 
       '</div>',
@@ -495,10 +650,21 @@
   }
 
   function bindButtons() {
-    var buttons = document.querySelectorAll("[data-cmd]");
+    var actionButtons = document.querySelectorAll("[data-stat]");
 
-    for (var i = 0; i < buttons.length; i++) {
-      buttons[i].addEventListener("click", function () {
+    for (var i = 0; i < actionButtons.length; i++) {
+      actionButtons[i].addEventListener("click", function () {
+        var stat = this.getAttribute("data-stat");
+        var amount = Number(this.getAttribute("data-amount") || 1);
+
+        sendAction(stat, amount);
+      });
+    }
+
+    var commandButtons = document.querySelectorAll("[data-cmd]");
+
+    for (var j = 0; j < commandButtons.length; j++) {
+      commandButtons[j].addEventListener("click", function () {
         copyCommand(this.getAttribute("data-cmd"));
       });
     }
@@ -508,7 +674,6 @@
     requestJsonWithJwt(
       API + "/api/me?t=" + Date.now(),
       function (data) {
-        isLoading = false;
         firstLoadDone = true;
 
         if (!data) {
@@ -534,37 +699,29 @@
         renderPlayer(data);
       },
       function (err) {
-        isLoading = false;
         firstLoadDone = true;
+
+        /*
+          Если карточка уже есть, не заменяем её ошибкой
+          из-за временного сбоя сети.
+        */
+        if (lastRenderKey && firstLoadDone) {
+          return;
+        }
+
         renderError(err);
       }
     );
   }
 
   function load() {
-    if (isLoading) {
-      return;
-    }
+    if (!twitchReady || !twitchToken) return;
 
-    if (!twitchReady || !twitchToken) {
-      return;
-    }
-
-    /*
-      Если Twitch говорит, что зритель ещё не разрешил identity,
-      показываем кнопку запроса разрешения.
-    */
     if (!isViewerLinked()) {
       renderNeedIdentity();
       return;
     }
 
-    isLoading = true;
-
-    /*
-      Загрузочный экран показываем только один раз.
-      Дальше обновление идёт тихо в фоне без мигания.
-    */
     if (!firstLoadDone) {
       setUI(
         '<div>Загрузка твоего персонажа...</div>' +
@@ -577,9 +734,7 @@
   }
 
   function startPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-    }
+    if (pollTimer) clearInterval(pollTimer);
 
     load();
 
@@ -607,9 +762,6 @@
       }
     });
 
-    /*
-      Защита от вечной загрузки, если onAuthorized не пришёл.
-    */
     setTimeout(function () {
       if (!twitchReady) {
         renderError(new Error("Twitch authorization timeout"));
@@ -620,6 +772,16 @@
   window.onerror = function (message, source, line, column) {
     renderError(new Error(String(message) + " line:" + line + " column:" + column));
   };
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) {
+      load();
+    }
+  });
+
+  window.addEventListener("focus", function () {
+    load();
+  });
 
   initTwitch();
 })();
