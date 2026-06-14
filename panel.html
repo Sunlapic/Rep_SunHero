@@ -4,46 +4,54 @@
   <meta charset="UTF-8">
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    content="width=device-width, initial-scale=1.0"
   >
 
-  <title>SunHero RPG Panel</title>
+  <title>SunHero Panel</title>
 
   <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+  <script defer src="panel.js"></script>
 
   <style>
-    :root {
-      --bg: #0e0c16;
-      --card: #171320;
-      --card2: #21182d;
-      --gold: #fbbf24;
-      --text: #f8e7b8;
-      --muted: #b8a574;
-      --red: #ef4444;
-      --green: #22c55e;
-      --blue: #38bdf8;
-      --purple: #a855f7;
-    }
+    @font-face {
+  font-family: "Forum";
+  src: url("Forum-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
     * {
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body,
+    button,
+    input,
+    textarea {
+      font-family: "Forum", Georgia, "Times New Roman", serif !important;
     }
 
     html,
     body {
       margin: 0;
       padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, sans-serif;
+      background: #0e0c16;
+      color: #f8e7b8;
       width: 100%;
       min-height: 100%;
       overflow-x: hidden;
     }
 
+    body {
+      padding: 10px;
+    }
+
     body.dark {
       background: #0e0c16;
-      color: var(--text);
+      color: #f8e7b8;
     }
 
     body.light {
@@ -51,60 +59,72 @@
       color: #201522;
     }
 
-    .app {
-      width: 100%;
-      padding: 10px;
-    }
-
     .header {
       text-align: center;
-      color: var(--gold);
-      font-weight: 800;
-      letter-spacing: 1px;
-      font-size: 18px;
+      color: #fbbf24;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      font-size: 22px;
       padding: 8px 4px 10px;
       border-bottom: 1px solid rgba(251, 191, 36, 0.35);
       margin-bottom: 10px;
     }
 
-    .card {
-      background: linear-gradient(180deg, var(--card), var(--card2));
-      border: 1px solid rgba(251, 191, 36, 0.22);
+    .box,
+    .loading,
+    .empty,
+    .error {
+      background: #171320;
+      border: 1px solid rgba(251, 191, 36, 0.25);
       border-radius: 14px;
       padding: 12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      text-align: center;
+      line-height: 1.4;
+      font-size: 16px;
+    }
+
+    .error {
+      color: #fecaca;
+      border-color: rgba(239, 68, 68, 0.55);
+    }
+
+    .card {
+      background: linear-gradient(180deg, #171320, #21182d);
+      border: 1px solid rgba(251, 191, 36, 0.25);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.35);
     }
 
     .top {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
       gap: 8px;
       margin-bottom: 8px;
     }
 
     .name {
       color: #fff;
-      font-size: 18px;
-      font-weight: 800;
+      font-size: 22px;
+      font-weight: 900;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .class {
-      color: var(--blue);
-      font-size: 12px;
-      text-align: right;
+      color: #38bdf8;
+      font-size: 15px;
       white-space: nowrap;
     }
 
     .hpbar {
       position: relative;
-      height: 22px;
-      border-radius: 999px;
+      height: 24px;
       background: #090711;
       border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 999px;
       overflow: hidden;
       margin: 8px 0 10px;
     }
@@ -113,7 +133,7 @@
       height: 100%;
       width: 0%;
       background: linear-gradient(90deg, #dc2626, #22c55e);
-      transition: width 0.3s ease;
+      transition: width 0.25s ease;
     }
 
     .hptext {
@@ -123,44 +143,76 @@
       align-items: center;
       justify-content: center;
       color: #fff;
-      font-size: 12px;
-      font-weight: 800;
+      font-size: 14px;
+      font-weight: 900;
       text-shadow: 1px 1px 2px #000;
     }
 
-    .grid {
+    .stat-list {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      grid-template-columns: 1fr;
+      gap: 6px;
       margin: 10px 0;
     }
 
-    .stat {
+    .stat-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       background: rgba(0,0,0,0.24);
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 10px;
-      padding: 8px;
-      min-height: 54px;
+      padding: 8px 10px;
+      min-height: 38px;
     }
 
-    .label {
-      color: var(--muted);
-      font-size: 11px;
+    .stat-name {
+      color: #b8a574;
+      font-size: 16px;
+      line-height: 1.15;
+    }
+
+    .stat-value {
+      color: #fff;
+      font-size: 19px;
+      font-weight: 900;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .stat-value.gold {
+      color: #fbbf24;
+    }
+
+    .attr-points-box {
+      background: rgba(34, 197, 94, 0.11);
+      border: 1px solid rgba(134, 239, 172, 0.35);
+      border-radius: 12px;
+      padding: 10px;
+      margin: 10px 0;
+      text-align: center;
+    }
+
+    .attr-points-label {
+      color: #b8a574;
+      font-size: 15px;
       margin-bottom: 4px;
     }
 
-    .value {
-      color: #fff;
-      font-size: 16px;
-      font-weight: 800;
-    }
-
-    .value.gold {
-      color: var(--gold);
-    }
-
-    .value.points {
+    .attr-points-value {
       color: #86efac;
+      font-size: 23px;
+      font-weight: 900;
+    }
+
+    .attr-title {
+      color: #fbbf24;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 900;
+      margin: 12px 0 8px;
+      letter-spacing: 1px;
     }
 
     .btns {
@@ -176,8 +228,8 @@
       border-radius: 12px;
       padding: 9px 10px;
       color: #fff;
-      font-size: 14px;
-      font-weight: 800;
+      font-size: 17px;
+      font-weight: 900;
       cursor: pointer;
       touch-action: manipulation;
     }
@@ -189,10 +241,11 @@
 
     .btn small {
       display: block;
-      font-size: 10px;
+      font-size: 13px;
       font-weight: 600;
-      opacity: 0.82;
+      opacity: 0.86;
       margin-top: 2px;
+      line-height: 1.15;
     }
 
     .b-str {
@@ -207,48 +260,27 @@
       background: linear-gradient(135deg, #312e81, #8b5cf6);
     }
 
-    .hint {
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 12px;
+    .b-open {
+      background: linear-gradient(135deg, #92400e, #f59e0b);
+    }
+
+    .hint,
+    .mini {
+      margin-top: 8px;
+      color: #b8a574;
+      font-size: 14px;
       text-align: center;
       line-height: 1.35;
       word-break: break-word;
-    }
-
-    .error,
-    .loading,
-    .empty {
-      background: rgba(0,0,0,0.25);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 14px;
-      text-align: center;
-      line-height: 1.4;
-      font-size: 13px;
-    }
-
-    .error {
-      color: #fecaca;
-      border-color: rgba(239, 68, 68, 0.4);
-    }
-
-    .mini {
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 10px;
-      text-align: center;
-      opacity: 0.75;
     }
   </style>
 </head>
 
 <body>
-  <div class="app">
-    <div class="header">⚔ SUN HERO ⚔</div>
-    <div id="ui" class="loading">Загрузка...</div>
-  </div>
+  <div class="header">⚔ SUN HERO ⚔</div>
 
-  <script src="panel.js"></script>
+  <div id="ui" class="loading">
+    Загрузка панели...
+  </div>
 </body>
 </html>
