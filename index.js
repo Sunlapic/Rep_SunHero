@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
 const app = express();
@@ -14,6 +14,7 @@ if (!MONGO_URI) {
 
 let db;
 let playersCollection;
+let actionsCollection;
 
 const TWITCH_EXTENSION_SECRET = process.env.TWITCH_EXTENSION_SECRET;
 const BOT_SECRET = process.env.BOT_SECRET || "";
@@ -298,7 +299,70 @@ const allowedFields = [
   "class_exp",
   "class_attr_points"
 ];
+/* =========================
+   ACTION HELPERS
+========================= */
 
+function normalizeActionStat(value) {
+  const raw = String(value || "").trim().toLowerCase();
+
+  if (
+    raw === "str" ||
+    raw === "strength" ||
+    raw === "сил" ||
+    raw === "сила"
+  ) {
+    return "str";
+  }
+
+  if (
+    raw === "agi" ||
+    raw === "agility" ||
+    raw === "лов" ||
+    raw === "ловкость"
+  ) {
+    return "agi";
+  }
+
+  if (
+    raw === "int" ||
+    raw === "intellect" ||
+    raw === "инт" ||
+    raw === "интеллект"
+  ) {
+    return "int";
+  }
+
+  return "";
+}
+
+function normalizeActionAmount(value) {
+  const n = Number(value);
+
+  if (!Number.isFinite(n)) return 1;
+
+  const rounded = Math.floor(n);
+
+  if (rounded < 1) return 1;
+  if (rounded > 100) return 100;
+
+  return rounded;
+}
+
+function publicAction(action) {
+  if (!action) return null;
+
+  return {
+    id: String(action._id),
+    type: action.type,
+    stat: action.stat,
+    amount: action.amount,
+    username: action.username,
+    twitch_user_id: action.twitch_user_id,
+    status: action.status,
+    createdAt: action.createdAt
+  };
+}
 /* =========================
    ROUTES
 ========================= */
@@ -308,30 +372,38 @@ app.get("/", (req, res) => {
     ok: true,
     name: "SunHero API",
     endpoints: [
-      "GET /health",
-      "GET /api/players",
-      "GET /api/player/:name",
-      "GET /api/me",
-      "POST /api/join",
-      "POST /api/update"
-    ]
+  "GET /health",
+  "GET /api/players",
+  "GET /api/player/:name",
+  "GET /api/me",
+  "POST /api/action",
+  "GET /api/actions/pending",
+  "POST /api/actions/done",
+  "POST /api/join",
+  "POST /api/update"
+]
   });
 });
 
 app.get("/health", async (req, res) => {
   try {
     const count = playersCollection
-      ? await playersCollection.countDocuments()
-      : 0;
+  ? await playersCollection.countDocuments()
+  : 0;
 
-    res.json({
-      ok: true,
-      mongo: Boolean(playersCollection),
-      players: count,
-      twitchSecret: Boolean(process.env.TWITCH_EXTENSION_SECRET),
-      botSecret: Boolean(process.env.BOT_SECRET),
-      time: nowIso()
-    });
+const pendingActions = actionsCollection
+  ? await actionsCollection.countDocuments({ status: "pending" })
+  : 0;
+
+res.json({
+  ok: true,
+  mongo: Boolean(playersCollection),
+  players: count,
+  pendingActions,
+  twitchSecret: Boolean(process.env.TWITCH_EXTENSION_SECRET),
+  botSecret: Boolean(process.env.BOT_SECRET),
+  time: nowIso()
+});
   } catch (err) {
     res.status(500).json({
       ok: false,
@@ -521,7 +593,243 @@ app.get("/api/me", verifyExtensionJwt, async (req, res) => {
     });
   }
 });
+/* =========================
+   CREATE ACTION FROM EXTENSION
+   Кнопка панели создаёт действие в очереди
+========================= */
 
+app.post("/api/action", verifyExtensionJwt, async (req, res) => {
+  const body = parseBody(req);
+
+  if (body.__parseError) {
+    return res.status(400).json({ error: "invalid json" });
+  }
+
+  try {
+    const twitchUserId = normalizeTwitchId(req.ext && req.ext.user_id);
+
+    if (!twitchUserId) {
+      return res.status(401).json({
+        error: "identity not shared",
+        needIdentity: true
+      });
+    }
+
+    const stat = normalizeActionStat(
+      body.stat ||
+      body.attr ||
+      body.attribute ||
+      ""
+    );
+
+    const amount = normalizeActionAmount(body.amount || 1);
+
+    if (!stat) {
+      return res.status(400).json({
+        error: "bad stat"
+      });
+    }
+
+    const player = await playersCollection.findOne({
+      twitch_user_id: twitchUserId
+    });
+
+    if (!player) {
+      return res.status(404).json({
+        error: "player not found",
+        needJoin: true
+      });
+    }
+
+    /*
+      Защита от спама:
+      если у игрока уже слишком много ожидающих действий,
+      новые временно не принимаем.
+    */
+    const pendingCount = await actionsCollection.countDocuments({
+      twitch_user_id: twitchUserId,
+      status: { $in: ["pending", "processing"] }
+    });
+
+    if (pendingCount >= 20) {
+      return res.status(429).json({
+        error: "too many pending actions"
+      });
+    }
+
+    const action = {
+      type: "attr",
+      stat,
+      amount,
+
+      username: player.username,
+      twitch_user_id: twitchUserId,
+
+      status: "pending",
+      source: "extension",
+
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+
+    const insertResult = await actionsCollection.insertOne(action);
+
+    const createdAction = await actionsCollection.findOne({
+      _id: insertResult.insertedId
+    });
+
+    return res.json({
+      ok: true,
+      action: publicAction(createdAction)
+    });
+  } catch (err) {
+    console.error("ACTION CREATE ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error",
+      message: err.message
+    });
+  }
+});
+
+/* =========================
+   GET PENDING ACTIONS FOR GAMEMAKER
+   GameMaker забирает очередь действий
+========================= */
+
+app.get("/api/actions/pending", requireBotSecret, async (req, res) => {
+  try {
+    const limitRaw = Number(req.query.limit || 20);
+    const limit = Number.isFinite(limitRaw)
+      ? Math.max(1, Math.min(50, Math.floor(limitRaw)))
+      : 20;
+
+    /*
+      Если action завис в processing больше 30 сек,
+      возвращаем его обратно в обработку.
+    */
+    const staleIso = new Date(Date.now() - 30000).toISOString();
+
+    const actions = await actionsCollection
+      .find({
+        $or: [
+          { status: "pending" },
+          {
+            status: "processing",
+            lockedAt: { $lt: staleIso }
+          }
+        ]
+      })
+      .sort({ createdAt: 1 })
+      .limit(limit)
+      .toArray();
+
+    if (actions.length === 0) {
+      return res.json({
+        ok: true,
+        actions: []
+      });
+    }
+
+    const ids = actions.map(a => a._id);
+
+    await actionsCollection.updateMany(
+      { _id: { $in: ids } },
+      {
+        $set: {
+          status: "processing",
+          lockedAt: nowIso(),
+          updatedAt: nowIso()
+        }
+      }
+    );
+
+    return res.json({
+      ok: true,
+      actions: actions.map(publicAction)
+    });
+  } catch (err) {
+    console.error("ACTIONS PENDING ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error",
+      message: err.message
+    });
+  }
+});
+
+/* =========================
+   MARK ACTION DONE
+   GameMaker сообщает, что действие выполнено
+========================= */
+
+app.post("/api/actions/done", requireBotSecret, async (req, res) => {
+  const body = parseBody(req);
+
+  if (body.__parseError) {
+    return res.status(400).json({ error: "invalid json" });
+  }
+
+  try {
+    const id = String(
+      body.id ||
+      body.actionId ||
+      body.action_id ||
+      ""
+    ).trim();
+
+    if (!id || !ObjectId.isValid(id)) {
+      return res.status(400).json({
+        error: "bad action id"
+      });
+    }
+
+    const ok = body.ok !== false;
+
+    const message = String(
+      body.message ||
+      body.result ||
+      ""
+    ).slice(0, 256);
+
+    const result = await actionsCollection.findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          status: ok ? "done" : "failed",
+          doneAt: nowIso(),
+          updatedAt: nowIso(),
+          resultMessage: message
+        }
+      },
+      {
+        returnDocument: "after"
+      }
+    );
+
+    const action = result && result.value !== undefined
+      ? result.value
+      : result;
+
+    if (!action) {
+      return res.status(404).json({
+        error: "action not found"
+      });
+    }
+
+    return res.json({
+      ok: true,
+      action: publicAction(action)
+    });
+  } catch (err) {
+    console.error("ACTION DONE ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error",
+      message: err.message
+    });
+  }
+});
 /* =========================
    UPDATE PLAYER
 ========================= */
@@ -612,6 +920,7 @@ async function startServer() {
 
     db = client.db("sunhero");
     playersCollection = db.collection("players");
+    actionsCollection = db.collection("actions");
 
     await playersCollection.createIndex(
       { username: 1 },
@@ -621,6 +930,18 @@ async function startServer() {
     await playersCollection.createIndex(
       { twitch_user_id: 1 },
       { unique: true, sparse: true }
+    );
+
+    await actionsCollection.createIndex(
+      { status: 1, createdAt: 1 }
+    );
+
+    await actionsCollection.createIndex(
+      { twitch_user_id: 1, status: 1 }
+    );
+
+    await actionsCollection.createIndex(
+      { createdAt: 1 }
     );
 
     console.log("MongoDB connected");
