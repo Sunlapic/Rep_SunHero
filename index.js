@@ -299,6 +299,7 @@ const allowedFields = [
   "class_exp",
   "class_attr_points"
 ];
+
 /* =========================
    ACTION HELPERS
 ========================= */
@@ -363,6 +364,7 @@ function publicAction(action) {
     createdAt: action.createdAt
   };
 }
+
 /* =========================
    ROUTES
 ========================= */
@@ -372,38 +374,50 @@ app.get("/", (req, res) => {
     ok: true,
     name: "SunHero API",
     endpoints: [
-  "GET /health",
-  "GET /api/players",
-  "GET /api/player/:name",
-  "GET /api/me",
-  "POST /api/action",
-  "GET /api/actions/pending",
-  "POST /api/actions/done",
-  "POST /api/join",
-  "POST /api/update"
-]
+      "GET /health",
+      "GET /api/players",
+      "GET /api/player/:name",
+      "GET /api/me",
+      "POST /api/action",
+      "GET /api/actions/pending",
+      "POST /api/actions/done",
+      "POST /api/join",
+      "POST /api/update",
+      "POST /api/presence",          // ✅ НОВОЕ
+      "GET /api/presence/active"     // ✅ НОВОЕ
+    ]
   });
 });
 
+// ✅ ИЗМЕНЕНО: добавлен activePresence
 app.get("/health", async (req, res) => {
   try {
     const count = playersCollection
-  ? await playersCollection.countDocuments()
-  : 0;
+      ? await playersCollection.countDocuments()
+      : 0;
 
-const pendingActions = actionsCollection
-  ? await actionsCollection.countDocuments({ status: "pending" })
-  : 0;
+    const pendingActions = actionsCollection
+      ? await actionsCollection.countDocuments({ status: "pending" })
+      : 0;
 
-res.json({
-  ok: true,
-  mongo: Boolean(playersCollection),
-  players: count,
-  pendingActions,
-  twitchSecret: Boolean(process.env.TWITCH_EXTENSION_SECRET),
-  botSecret: Boolean(process.env.BOT_SECRET),
-  time: nowIso()
-});
+    // Считаем игроков, активных за последние 60 секунд
+    const activeSinceIso = new Date(Date.now() - 60 * 1000).toISOString();
+    const activePresence = playersCollection
+      ? await playersCollection.countDocuments({
+          presence_last_seen: { $gte: activeSinceIso }
+        })
+      : 0;
+
+    res.json({
+      ok: true,
+      mongo: Boolean(playersCollection),
+      players: count,
+      pendingActions,
+      activePresence,           // ✅ НОВОЕ
+      twitchSecret: Boolean(process.env.TWITCH_EXTENSION_SECRET),
+      botSecret: Boolean(process.env.BOT_SECRET),
+      time: nowIso()
+    });
   } catch (err) {
     res.status(500).json({
       ok: false,
@@ -593,6 +607,119 @@ app.get("/api/me", verifyExtensionJwt, async (req, res) => {
     });
   }
 });
+
+/* =========================
+   ✅ НОВОЕ: PRESENCE HEARTBEAT
+   Зритель сообщает, что он онлайн
+========================= */
+
+app.post("/api/presence", verifyExtensionJwt, async (req, res) => {
+  try {
+    const twitchUserId = normalizeTwitchId(req.ext && req.ext.user_id);
+
+    // Зритель не дал доступ к своему ID
+    if (!twitchUserId) {
+      return res.status(401).json({
+        error: "identity not shared",
+        needIdentity: true
+      });
+    }
+
+    // Ищем игрока по Twitch ID
+    const player = await playersCollection.findOne({
+      twitch_user_id: twitchUserId
+    });
+
+    // Игрока нет — он ещё не сделал !join
+    if (!player) {
+      return res.status(404).json({
+        error: "player not found",
+        needJoin: true
+      });
+    }
+
+    const now = nowIso();
+    const body = parseBody(req);
+    const platform = String(body.platform || "unknown").slice(0, 32);
+
+    // Обновляем данные присутствия
+    await playersCollection.updateOne(
+      { twitch_user_id: twitchUserId },
+      {
+        $set: {
+          presence_online: true,
+          presence_last_seen: now,
+          presence_platform: platform,
+          presence_updatedAt: now
+        }
+      }
+    );
+
+    return res.json({
+      ok: true,
+      username: player.username,
+      lastSeen: now
+    });
+  } catch (err) {
+    console.error("PRESENCE ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error",
+      message: err.message
+    });
+  }
+});
+
+/* =========================
+   ✅ НОВОЕ: GET ACTIVE PRESENCE
+   GameMaker забирает список онлайн-игроков
+========================= */
+
+app.get("/api/presence/active", requireBotSecret, async (req, res) => {
+  try {
+    // Таймаут в секундах, по умолчанию 60
+    const timeoutRaw = Number(req.query.timeout || 60);
+    const timeoutSec = Number.isFinite(timeoutRaw)
+      ? Math.max(10, Math.min(300, Math.floor(timeoutRaw)))
+      : 60;
+
+    // ISO-строка момента отсечки (сейчас минус таймаут)
+    const activeSinceIso = new Date(Date.now() - timeoutSec * 1000).toISOString();
+
+    // Все игроки, у которых presence_last_seen >= отсечки
+    const activePlayers = await playersCollection
+      .find({
+        presence_last_seen: { $gte: activeSinceIso }
+      })
+      .project({
+        username: 1,
+        twitch_user_id: 1,
+        presence_last_seen: 1
+      })
+      .toArray();
+
+    const players = activePlayers.map(p => ({
+      username: p.username,
+      twitch_user_id: p.twitch_user_id,
+      lastSeen: p.presence_last_seen,
+      online: true
+    }));
+
+    return res.json({
+      ok: true,
+      timeoutSec,
+      players
+    });
+  } catch (err) {
+    console.error("PRESENCE ACTIVE ERROR:", err);
+
+    return res.status(500).json({
+      error: "db error",
+      message: err.message
+    });
+  }
+});
+
 /* =========================
    CREATE ACTION FROM EXTENSION
    Кнопка панели создаёт действие в очереди
@@ -641,11 +768,6 @@ app.post("/api/action", verifyExtensionJwt, async (req, res) => {
       });
     }
 
-    /*
-      Защита от спама:
-      если у игрока уже слишком много ожидающих действий,
-      новые временно не принимаем.
-    */
     const pendingCount = await actionsCollection.countDocuments({
       twitch_user_id: twitchUserId,
       status: { $in: ["pending", "processing"] }
@@ -704,10 +826,6 @@ app.get("/api/actions/pending", requireBotSecret, async (req, res) => {
       ? Math.max(1, Math.min(50, Math.floor(limitRaw)))
       : 20;
 
-    /*
-      Если action завис в processing больше 30 сек,
-      возвращаем его обратно в обработку.
-    */
     const staleIso = new Date(Date.now() - 30000).toISOString();
 
     const actions = await actionsCollection
@@ -830,6 +948,7 @@ app.post("/api/actions/done", requireBotSecret, async (req, res) => {
     });
   }
 });
+
 /* =========================
    UPDATE PLAYER
 ========================= */
@@ -930,6 +1049,11 @@ async function startServer() {
     await playersCollection.createIndex(
       { twitch_user_id: 1 },
       { unique: true, sparse: true }
+    );
+
+    // ✅ НОВОЕ: индекс для быстрого поиска по presence_last_seen
+    await playersCollection.createIndex(
+      { presence_last_seen: 1 }
     );
 
     await actionsCollection.createIndex(
