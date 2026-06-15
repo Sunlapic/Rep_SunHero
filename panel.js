@@ -17,6 +17,8 @@
   var lastRenderKey = "";
   var lastErrorKey = "";
 
+  var presenceTimer = null; // ✅ НОВОЕ
+
   function setUI(html, className) {
     if (!ui) {
       ui = document.getElementById("ui");
@@ -118,10 +120,6 @@
       "dodge"
     ], 0);
 
-    /*
-      Если пришло 0.40 — это chance.
-      Если пришло 40 — это уже percent.
-    */
     if (raw > 0 && raw <= 1) {
       raw = raw * 100;
     }
@@ -178,10 +176,6 @@
   }
 
   function playerKey(p) {
-    /*
-      Если эти данные не изменились — панель не перерисовывается.
-      Это убирает мигание.
-    */
     return JSON.stringify({
       username: p.username,
       class: p["class"],
@@ -267,6 +261,48 @@
     }
   }
 
+  /* =========================
+     ✅ НОВОЕ: PRESENCE HEARTBEAT
+     Сообщаем бэкенду что зритель онлайн
+  ========================= */
+
+  function sendPresence() {
+    // Не отправляем если токен не готов
+    if (!twitchReady || !twitchToken) return;
+
+    // Не отправляем если зритель не дал Twitch ID
+    if (!isViewerLinked()) return;
+
+    var xhr = new XMLHttpRequest();
+
+    try {
+      xhr.open("POST", API + "/api/presence", true);
+      xhr.timeout = 8000;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      // Тихий запрос — ответ нас не интересует, ошибки не показываем
+      xhr.send(JSON.stringify({ platform: "panel" }));
+    } catch (e) {
+      // Тихо игнорируем — heartbeat фоновый
+    }
+  }
+
+  function startPresence() {
+    // Не запускаем дважды
+    if (presenceTimer) return;
+
+    // Первый ping сразу
+    sendPresence();
+
+    // Потом каждые 15 секунд
+    presenceTimer = setInterval(sendPresence, 15000);
+  }
+
+  // ✅ КОНЕЦ НОВОЕ
+
   function sendAction(stat, amount) {
     if (!twitchReady || !twitchToken) {
       showHint("Twitch ещё не готов. Попробуй через секунду.");
@@ -305,11 +341,6 @@
         if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
           done("✓ Команда отправлена в игру");
 
-          /*
-            GameMaker забирает action примерно раз в 1.5 сек,
-            затем сохраняет игрока, затем панель читает /api/me.
-            Через 2 сек делаем тихую проверку.
-          */
           setTimeout(function () {
             lastRenderKey = "";
             load();
@@ -359,10 +390,6 @@
   }
 
   function requestJsonWithJwt(url, done, fail) {
-    /*
-      Если предыдущий запрос ещё висит — отменяем.
-      Это защищает от залипания polling.
-    */
     if (currentXhr) {
       try {
         currentXhr.abort();
@@ -548,10 +575,6 @@
   function renderPlayer(p) {
     var key = playerKey(p);
 
-    /*
-      Если данные не изменились — HTML не трогаем.
-      Если изменились — перерисовываем.
-    */
     if (lastRenderKey === key) return;
 
     lastRenderKey = key;
@@ -701,10 +724,6 @@
       function (err) {
         firstLoadDone = true;
 
-        /*
-          Если карточка уже есть, не заменяем её ошибкой
-          из-за временного сбоя сети.
-        */
         if (lastRenderKey && firstLoadDone) {
           return;
         }
@@ -754,6 +773,7 @@
       twitchReady = true;
 
       startPolling();
+      startPresence(); // ✅ НОВОЕ: запускаем heartbeat после авторизации
     });
 
     window.Twitch.ext.onContext(function (ctx) {
@@ -776,11 +796,13 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) {
       load();
+      sendPresence(); // ✅ НОВОЕ: вернулся на вкладку — сразу пингуем
     }
   });
 
   window.addEventListener("focus", function () {
     load();
+    sendPresence(); // ✅ НОВОЕ: фокус на окне — сразу пингуем
   });
 
   initTwitch();
