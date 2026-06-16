@@ -75,22 +75,22 @@ app.get("/oauth/callback", (req, res) => {
 
 // Сохраняем токен от JS страницы
 app.post("/oauth/save", async (req, res) => {
-    // ✅ Читаем тело напрямую — не через parseBody
-    let body = req.body;
+    // ✅ Читаем тело вручную через поток
+    let rawBody = "";
 
-    console.log("OAuth/save raw body type:", typeof body);
-    console.log("OAuth/save raw body:", JSON.stringify(body));
+    await new Promise((resolve) => {
+        req.on("data", chunk => { rawBody += chunk.toString(); });
+        req.on("end", resolve);
+    });
 
-    // Если body пришёл как строка — парсим
-    if (typeof body === "string")
-    {
-        try { body = JSON.parse(body); }
-        catch (e) { return res.status(400).json({ error: "json parse error" }); }
-    }
+    console.log("OAuth/save raw:", rawBody);
 
-    if (!body || typeof body !== "object")
-    {
-        return res.status(400).json({ error: "empty body" });
+    let body;
+    try {
+        body = JSON.parse(rawBody);
+    } catch (e) {
+        console.log("OAuth/save parse error:", e.message);
+        return res.status(400).json({ error: "json parse error" });
     }
 
     const session_id = String(body.session_id || "").slice(0, 64);
@@ -101,18 +101,14 @@ app.post("/oauth/save", async (req, res) => {
         + " type=" + type
         + " token_len=" + token.length);
 
-    if (!session_id || !token)
-    {
-        console.log("OAuth/save: missing session_id or token");
+    if (!session_id || !token) {
         return res.status(400).json({ error: "bad params" });
     }
 
     var username = "";
 
-    if (type === "channel")
-    {
-        try
-        {
+    if (type === "channel") {
+        try {
             const clean_token = token.replace("oauth:", "");
             const response = await fetch("https://api.twitch.tv/helix/users", {
                 headers: {
@@ -124,14 +120,11 @@ app.post("/oauth/save", async (req, res) => {
             const data = await response.json();
             console.log("Helix response:", JSON.stringify(data));
 
-            if (data.data && data.data.length > 0)
-            {
+            if (data.data && data.data.length > 0) {
                 username = data.data[0].login;
                 console.log("OAuth channel username: " + username);
             }
-        }
-        catch (err)
-        {
+        } catch (err) {
             console.error("OAuth Helix error:", err);
         }
     }
