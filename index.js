@@ -75,7 +75,13 @@ app.get("/oauth/callback", (req, res) => {
 
 // Сохраняем токен от JS страницы
 app.post("/oauth/save", async (req, res) => {
-    const body       = req.body;
+    // ✅ ФИКС: используем parseBody как везде в проекте
+    const body = parseBody(req);
+
+    if (!body || body.__parseError) {
+        return res.status(400).json({ error: "invalid json" });
+    }
+
     const session_id = String(body.session_id || "").slice(0, 32);
     const token      = String(body.token      || "").slice(0, 512);
     const type       = String(body.type       || "bot").slice(0, 16);
