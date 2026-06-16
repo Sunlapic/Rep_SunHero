@@ -74,7 +74,7 @@ app.get("/oauth/callback", (req, res) => {
 });
 
 // Сохраняем токен от JS страницы
-app.post("/oauth/save", (req, res) => {
+app.post("/oauth/save", async (req, res) => {
     const body       = req.body;
     const session_id = String(body.session_id || "").slice(0, 32);
     const token      = String(body.token      || "").slice(0, 512);
@@ -84,14 +84,46 @@ app.post("/oauth/save", (req, res) => {
         return res.status(400).json({ error: "bad params" });
     }
 
+    // Для канала — получаем имя через Twitch API
+    var username = "";
+
+    if (type === "channel")
+    {
+        try
+        {
+            // Берём чистый токен без "oauth:" префикса
+            const clean_token = token.replace("oauth:", "");
+
+            const response = await fetch("https://api.twitch.tv/helix/users", {
+                headers: {
+                    "Authorization": "Bearer " + clean_token,
+                    "Client-Id":     "vhci9k13zy44jty2n7kdvacmx0bmvw"
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.data && data.data.length > 0)
+            {
+                username = data.data[0].login;
+                console.log("OAuth channel username: " + username);
+            }
+        }
+        catch (err)
+        {
+            console.error("OAuth Helix error:", err);
+        }
+    }
+
     // Храним 5 минут
     oauthTokens[session_id] = {
         token,
         type,
+        username,
         expires: Date.now() + 5 * 60 * 1000
     };
 
-    console.log("OAuth token saved: type=" + type + " session=" + session_id);
+    console.log("OAuth token saved: type=" + type + " session=" + session_id + " username=" + username);
     return res.json({ ok: true });
 });
 
@@ -118,6 +150,7 @@ app.get("/oauth/poll", requireBotSecret, (req, res) => {
         ready: true,
         token: data.token,
         type:  data.type
+      username: data.username || ""  
     });
 });
 
