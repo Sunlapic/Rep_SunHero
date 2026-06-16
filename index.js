@@ -128,7 +128,7 @@ app.post("/oauth/save", async (req, res) => {
 });
 
 // GameMaker опрашивает — готов ли токен?
-app.get("/oauth/poll", requireBotSecret, (req, res) => {
+app.get("/oauth/poll", (req, res) => {
     const session_id = String(req.query.session || "").slice(0, 32);
 
     // Чистим просроченные
