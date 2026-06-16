@@ -16,6 +16,111 @@ let db;
 let playersCollection;
 let actionsCollection;
 
+// =============================================
+// OAUTH — временное хранилище токенов
+// =============================================
+const oauthTokens = {}; // { session_id: { token, type, expires } }
+
+// Страница которая ловит токен из URL fragment
+app.get("/oauth/callback", (req, res) => {
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>SunHero Auth</title>
+    <style>
+        body { background: #12121c; color: #fff;
+               font-family: Arial; text-align: center;
+               padding-top: 100px; }
+        h2   { color: #7c5ce4; }
+        p    { color: #888; }
+    </style>
+</head>
+<body>
+    <h2>SunHero</h2>
+    <p id="msg">Получаем токен...</p>
+    <script>
+        var hash   = window.location.hash.substring(1);
+        var params = new URLSearchParams(hash);
+        var token  = params.get("access_token");
+        var state  = params.get("state"); // содержит session_id и type
+
+        if (token && state) {
+            var parts   = state.split("_");
+            var session = parts[0];
+            var type    = parts[1] || "bot";
+
+            fetch("/oauth/save", {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify({
+                    session_id: session,
+                    token:      "oauth:" + token,
+                    type:       type
+                })
+            }).then(function() {
+                document.getElementById("msg").textContent =
+                    "✅ Токен получен! Можно закрыть вкладку.";
+            });
+        } else {
+            document.getElementById("msg").textContent =
+                "❌ Ошибка: токен не получен.";
+        }
+    </script>
+</body>
+</html>
+    `);
+});
+
+// Сохраняем токен от JS страницы
+app.post("/oauth/save", (req, res) => {
+    const body       = req.body;
+    const session_id = String(body.session_id || "").slice(0, 32);
+    const token      = String(body.token      || "").slice(0, 512);
+    const type       = String(body.type       || "bot").slice(0, 16);
+
+    if (!session_id || !token) {
+        return res.status(400).json({ error: "bad params" });
+    }
+
+    // Храним 5 минут
+    oauthTokens[session_id] = {
+        token,
+        type,
+        expires: Date.now() + 5 * 60 * 1000
+    };
+
+    console.log("OAuth token saved: type=" + type + " session=" + session_id);
+    return res.json({ ok: true });
+});
+
+// GameMaker опрашивает — готов ли токен?
+app.get("/oauth/poll", requireBotSecret, (req, res) => {
+    const session_id = String(req.query.session || "").slice(0, 32);
+
+    // Чистим просроченные
+    for (const key of Object.keys(oauthTokens)) {
+        if (oauthTokens[key].expires < Date.now()) {
+            delete oauthTokens[key];
+        }
+    }
+
+    if (!oauthTokens[session_id]) {
+        return res.json({ ok: false, ready: false });
+    }
+
+    const data = oauthTokens[session_id];
+    delete oauthTokens[session_id]; // одноразовый
+
+    return res.json({
+        ok:    true,
+        ready: true,
+        token: data.token,
+        type:  data.type
+    });
+});
+
 const TWITCH_EXTENSION_SECRET = process.env.TWITCH_EXTENSION_SECRET;
 const BOT_SECRET = process.env.BOT_SECRET || "";
 
