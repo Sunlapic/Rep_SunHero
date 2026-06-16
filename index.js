@@ -75,31 +75,45 @@ app.get("/oauth/callback", (req, res) => {
 
 // Сохраняем токен от JS страницы
 app.post("/oauth/save", async (req, res) => {
-    // ✅ ФИКС: используем parseBody как везде в проекте
-    const body = parseBody(req);
+    // ✅ Читаем тело напрямую — не через parseBody
+    let body = req.body;
 
-    if (!body || body.__parseError) {
-        return res.status(400).json({ error: "invalid json" });
+    console.log("OAuth/save raw body type:", typeof body);
+    console.log("OAuth/save raw body:", JSON.stringify(body));
+
+    // Если body пришёл как строка — парсим
+    if (typeof body === "string")
+    {
+        try { body = JSON.parse(body); }
+        catch (e) { return res.status(400).json({ error: "json parse error" }); }
     }
 
-    const session_id = String(body.session_id || "").slice(0, 32);
+    if (!body || typeof body !== "object")
+    {
+        return res.status(400).json({ error: "empty body" });
+    }
+
+    const session_id = String(body.session_id || "").slice(0, 64);
     const token      = String(body.token      || "").slice(0, 512);
     const type       = String(body.type       || "bot").slice(0, 16);
 
-    if (!session_id || !token) {
+    console.log("OAuth/save: session=" + session_id
+        + " type=" + type
+        + " token_len=" + token.length);
+
+    if (!session_id || !token)
+    {
+        console.log("OAuth/save: missing session_id or token");
         return res.status(400).json({ error: "bad params" });
     }
 
-    // Для канала — получаем имя через Twitch API
     var username = "";
 
     if (type === "channel")
     {
         try
         {
-            // Берём чистый токен без "oauth:" префикса
             const clean_token = token.replace("oauth:", "");
-
             const response = await fetch("https://api.twitch.tv/helix/users", {
                 headers: {
                     "Authorization": "Bearer " + clean_token,
@@ -108,6 +122,7 @@ app.post("/oauth/save", async (req, res) => {
             });
 
             const data = await response.json();
+            console.log("Helix response:", JSON.stringify(data));
 
             if (data.data && data.data.length > 0)
             {
@@ -121,7 +136,6 @@ app.post("/oauth/save", async (req, res) => {
         }
     }
 
-    // Храним 5 минут
     oauthTokens[session_id] = {
         token,
         type,
@@ -129,10 +143,12 @@ app.post("/oauth/save", async (req, res) => {
         expires: Date.now() + 5 * 60 * 1000
     };
 
-    console.log("OAuth token saved: type=" + type + " session=" + session_id + " username=" + username);
+    console.log("OAuth token saved: type=" + type
+        + " session=" + session_id
+        + " username=" + username);
+
     return res.json({ ok: true });
 });
-
 // GameMaker опрашивает — готов ли токен?
 app.get("/oauth/poll", (req, res) => {
     const session_id = String(req.query.session || "").slice(0, 32);
