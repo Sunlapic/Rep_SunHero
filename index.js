@@ -149,7 +149,7 @@ app.get("/oauth/poll", requireBotSecret, (req, res) => {
         ok:    true,
         ready: true,
         token: data.token,
-        type:  data.type
+        type:  data.type,
       username: data.username || ""  
     });
 });
