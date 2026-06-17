@@ -21,9 +21,20 @@ let playersCollection;
 let actionsCollection;
 
 // =============================================
-// OAUTH — временное хранилище токенов в памяти
+// OAUTH — временное хранилище (одноразовое)
 // =============================================
 const oauthTokens = {};
+
+// =============================================
+// OAUTH — постоянное хранилище последних токенов
+// Сохраняется пока сервер работает.
+// Пережить рестарт не может — но OAuth можно
+// пройти заново при следующем запуске лаунчера.
+// =============================================
+const savedAuth = {
+  bot: null,
+  channel: null
+};
 
 /* =========================
    TWITCH JWT / BOT SECRET
@@ -39,7 +50,6 @@ function getExtensionSecretBuffer() {
 function getJwtFromRequest(req) {
   const headerToken = req.headers["x-extension-jwt"];
   if (headerToken) return String(headerToken);
-
   const auth = req.headers["authorization"];
   if (auth && String(auth).startsWith("Bearer ")) {
     return String(auth).slice("Bearer ".length);
@@ -133,12 +143,12 @@ function createPlayer(name) {
     evasion_percent: 0,
     class_stats: {
       warrior: { strength: 5, agility: 2, intellect: 2 },
-      archer: { strength: 2, agility: 5, intellect: 2 },
-      wizard: { strength: 2, agility: 2, intellect: 5 }
+      archer:  { strength: 2, agility: 5, intellect: 2 },
+      wizard:  { strength: 2, agility: 2, intellect: 5 }
     },
-    class_levels: { warrior: 1, archer: 1, wizard: 1 },
-    class_exp: { warrior: 0, archer: 0, wizard: 0 },
-    class_attr_points: { warrior: 0, archer: 0, wizard: 0 },
+    class_levels:     { warrior: 1, archer: 1, wizard: 1 },
+    class_exp:        { warrior: 0, archer: 0, wizard: 0 },
+    class_attr_points:{ warrior: 0, archer: 0, wizard: 0 },
     createdAt: nowIso(),
     updatedAt: nowIso()
   };
@@ -249,6 +259,8 @@ app.get("/", (req, res) => {
       "GET /oauth/callback",
       "POST /oauth/save",
       "GET /oauth/poll",
+      "GET /api/auth/status",
+      "GET /api/auth/bot-token",
       "GET /api/players",
       "GET /api/players/admin",
       "GET /api/player/:name",
@@ -287,6 +299,8 @@ app.get("/health", async (req, res) => {
       activePresence,
       twitchSecret: Boolean(TWITCH_EXTENSION_SECRET),
       botSecret: Boolean(BOT_SECRET),
+      authBot: Boolean(savedAuth.bot),
+      authChannel: Boolean(savedAuth.channel),
       time: nowIso()
     });
   } catch (err) {
@@ -296,8 +310,6 @@ app.get("/health", async (req, res) => {
 
 /* =========================
    OAUTH — /auth/bot
-   Редирект на Twitch OAuth для бота
-   session передаётся через query param и сохраняется в state
 ========================= */
 
 app.get("/auth/bot", (req, res) => {
@@ -313,13 +325,11 @@ app.get("/auth/bot", (req, res) => {
   });
 
   console.log("Auth bot: session=" + session + " state=" + state);
-
   return res.redirect("https://id.twitch.tv/oauth2/authorize?" + params.toString());
 });
 
 /* =========================
    OAUTH — /auth/channel
-   Редирект на Twitch OAuth для канала
 ========================= */
 
 app.get("/auth/channel", (req, res) => {
@@ -335,14 +345,11 @@ app.get("/auth/channel", (req, res) => {
   });
 
   console.log("Auth channel: session=" + session + " state=" + state);
-
   return res.redirect("https://id.twitch.tv/oauth2/authorize?" + params.toString());
 });
 
 /* =========================
    OAUTH — /oauth/callback
-   HTML страница которая ловит токен из URL fragment
-   и отправляет его на /oauth/save
 ========================= */
 
 app.get("/oauth/callback", (req, res) => {
@@ -367,33 +374,26 @@ app.get("/oauth/callback", (req, res) => {
 <body>
   <h2>SunHero</h2>
   <p id="msg">Получаем токен...</p>
-
   <script>
     async function main() {
       var el = document.getElementById("msg");
-
       try {
         var hash = window.location.hash || "";
         if (hash.startsWith("#")) hash = hash.slice(1);
         var params = new URLSearchParams(hash);
-
         var token = params.get("access_token") || "";
         var state = params.get("state") || "";
         var scope = params.get("scope") || "";
-
         if (!token) {
           el.innerHTML = '<span class="err">❌ Ошибка: access_token не найден.</span>';
           return;
         }
-
         if (!state) {
           el.innerHTML = '<span class="err">❌ Ошибка: state не найден.</span>';
           return;
         }
-
         var type = "bot";
         var session_id = state;
-
         if (state.indexOf("_channel") >= 0) {
           type = "channel";
           session_id = state.replace("_channel", "");
@@ -401,40 +401,25 @@ app.get("/oauth/callback", (req, res) => {
           type = "bot";
           session_id = state.replace("_bot", "");
         }
-
         var resp = await fetch("/oauth/save", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({
-            session_id: session_id,
-            token: "oauth:" + token,
-            type: type,
-            scope: scope,
-            state: state
-          })
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ session_id, token: "oauth:" + token, type, scope, state })
         });
-
         var json = await resp.json();
-
         if (!resp.ok || !json.ok) {
           el.innerHTML = '<span class="err">❌ Ошибка сохранения.</span><pre>' +
             JSON.stringify(json, null, 2) + '</pre>';
           return;
         }
-
         el.innerHTML =
           '<div class="ok">✅ Токен получен! Можно закрыть вкладку.</div>' +
           '<p>Тип: <b>' + type + '</b></p>' +
           '<p>Login: <b>' + (json.username || "-") + '</b></p>';
-
       } catch (e) {
         el.innerHTML = '<span class="err">❌ Ошибка: ' + String(e.message || e) + '</span>';
       }
     }
-
     main();
   </script>
 </body>
@@ -444,7 +429,6 @@ app.get("/oauth/callback", (req, res) => {
 
 /* =========================
    OAUTH — /oauth/save
-   Принимает токен от JS страницы
 ========================= */
 
 app.post("/oauth/save",
@@ -452,35 +436,30 @@ app.post("/oauth/save",
   async (req, res) => {
     try {
       const body = req.body || {};
-
       const session_id = String(body.session_id || "").slice(0, 64);
-      const token = String(body.token || "").slice(0, 512);
-      const type = String(body.type || "bot").slice(0, 16);
-      const scope = String(body.scope || "");
+      const token      = String(body.token      || "").slice(0, 512);
+      const type       = String(body.type       || "bot").slice(0, 16);
+      const scope      = String(body.scope      || "");
 
       console.log("OAuth/save: session=" + session_id + " type=" + type + " token_len=" + token.length);
 
       if (!session_id || !token) {
         return res.status(400).json({ ok: false, error: "bad params" });
       }
-
       if (type !== "bot" && type !== "channel") {
         return res.status(400).json({ ok: false, error: "bad type" });
       }
 
       let username = "";
-
       const cleanToken = token.replace("oauth:", "");
 
-      // Валидируем токен через Twitch
+      // Валидируем через Twitch /validate
       try {
         const validateResp = await fetch("https://id.twitch.tv/oauth2/validate", {
           method: "GET",
           headers: { "Authorization": "OAuth " + cleanToken }
         });
-
         const validateData = await validateResp.json();
-
         if (validateResp.ok && validateData.login) {
           username = validateData.login;
           console.log("OAuth validated: login=" + username);
@@ -489,7 +468,7 @@ app.post("/oauth/save",
         console.error("OAuth validate error:", err.message);
       }
 
-      // Если username пустой — пробуем через Helix
+      // Fallback через Helix
       if (!username) {
         try {
           const helixResp = await fetch("https://api.twitch.tv/helix/users", {
@@ -498,10 +477,7 @@ app.post("/oauth/save",
               "Client-Id": TWITCH_CLIENT_ID
             }
           });
-
           const helixData = await helixResp.json();
-          console.log("Helix response:", JSON.stringify(helixData));
-
           if (helixData.data && helixData.data.length > 0) {
             username = helixData.data[0].login;
             console.log("OAuth Helix username: " + username);
@@ -511,21 +487,23 @@ app.post("/oauth/save",
         }
       }
 
+      // Сохраняем одноразово для polling
       oauthTokens[session_id] = {
+        token, type, username, scope,
+        expires: Date.now() + 5 * 60 * 1000
+      };
+
+      // Сохраняем постоянно для /api/auth/status и /api/auth/bot-token
+      savedAuth[type] = {
         token,
-        type,
         username,
         scope,
-        expires: Date.now() + 5 * 60 * 1000
+        savedAt: nowIso()
       };
 
       console.log("OAuth token saved: type=" + type + " session=" + session_id + " username=" + username);
 
-      return res.json({
-        ok: true,
-        type,
-        username
-      });
+      return res.json({ ok: true, type, username });
     } catch (err) {
       console.error("OAUTH SAVE ERROR:", err);
       return res.status(500).json({ ok: false, error: "oauth save error", message: err.message });
@@ -535,13 +513,11 @@ app.post("/oauth/save",
 
 /* =========================
    OAUTH — /oauth/poll
-   GameMaker опрашивает — готов ли токен?
 ========================= */
 
 app.get("/oauth/poll", (req, res) => {
   const session_id = String(req.query.session || "").slice(0, 64);
 
-  // Чистим просроченные
   for (const key of Object.keys(oauthTokens)) {
     if (oauthTokens[key].expires < Date.now()) {
       delete oauthTokens[key];
@@ -553,7 +529,7 @@ app.get("/oauth/poll", (req, res) => {
   }
 
   const data = oauthTokens[session_id];
-  delete oauthTokens[session_id]; // одноразовый
+  delete oauthTokens[session_id];
 
   return res.json({
     ok: true,
@@ -561,6 +537,51 @@ app.get("/oauth/poll", (req, res) => {
     token: data.token,
     type: data.type,
     username: data.username || ""
+  });
+});
+
+/* =========================
+   AUTH STATUS — для кнопки "Проверить статус" в лаунчере
+   Показывает последние сохранённые OAuth токены
+========================= */
+
+app.get("/api/auth/status", requireBotSecret, (req, res) => {
+  return res.json({
+    ok: true,
+    bot: savedAuth.bot
+      ? {
+          connected: true,
+          login: savedAuth.bot.username || "",
+          savedAt: savedAuth.bot.savedAt || ""
+        }
+      : { connected: false },
+    channel: savedAuth.channel
+      ? {
+          connected: true,
+          login: savedAuth.channel.username || "",
+          savedAt: savedAuth.channel.savedAt || ""
+        }
+      : { connected: false }
+  });
+});
+
+/* =========================
+   AUTH BOT TOKEN — для получения токена бота
+========================= */
+
+app.get("/api/auth/bot-token", requireBotSecret, (req, res) => {
+  if (!savedAuth.bot || !savedAuth.bot.token) {
+    return res.status(404).json({
+      ok: false,
+      error: "bot token not found. Please complete Bot OAuth first."
+    });
+  }
+
+  return res.json({
+    ok: true,
+    bot_name: savedAuth.bot.username || "",
+    bot_oauth: savedAuth.bot.token || "",
+    savedAt: savedAuth.bot.savedAt || ""
   });
 });
 
@@ -575,7 +596,6 @@ app.get("/api/players", async (req, res) => {
       .sort({ updatedAt: -1, username: 1 })
       .limit(100)
       .toArray();
-
     return res.json(players.map(publicPlayer));
   } catch (err) {
     console.error("PLAYERS ERROR:", err);
@@ -597,8 +617,8 @@ app.get("/api/players/admin", requireBotSecret, async (req, res) => {
     let sortQuery = { updatedAt: -1, username: 1 };
     const sort = String(req.query.sort || "updated").toLowerCase();
     if (sort === "username") sortQuery = { username: 1 };
-    if (sort === "kills") sortQuery = { kills: -1, username: 1 };
-    if (sort === "gold") sortQuery = { gold: -1, username: 1 };
+    if (sort === "kills")    sortQuery = { kills: -1, username: 1 };
+    if (sort === "gold")     sortQuery = { gold:  -1, username: 1 };
 
     const players = await playersCollection
       .find({})
@@ -606,11 +626,7 @@ app.get("/api/players/admin", requireBotSecret, async (req, res) => {
       .limit(limit)
       .toArray();
 
-    return res.json({
-      ok: true,
-      count: players.length,
-      players: players.map(publicPlayer)
-    });
+    return res.json({ ok: true, count: players.length, players: players.map(publicPlayer) });
   } catch (err) {
     console.error("PLAYERS ADMIN ERROR:", err);
     return res.status(500).json({ ok: false, error: "db error", message: err.message });
@@ -624,7 +640,6 @@ app.get("/api/players/admin", requireBotSecret, async (req, res) => {
 app.get("/api/player/:name", async (req, res) => {
   const name = normalizeName(req.params.name);
   if (!name) return res.status(400).json({ error: "no name" });
-
   try {
     const player = await playersCollection.findOne({ username: name });
     if (!player) return res.status(404).json({ error: "not found" });
@@ -645,12 +660,10 @@ app.get("/api/me", verifyExtensionJwt, async (req, res) => {
     if (!twitchUserId) {
       return res.status(401).json({ error: "identity not shared", needIdentity: true });
     }
-
     const player = await playersCollection.findOne({ twitch_user_id: twitchUserId });
     if (!player) {
       return res.status(404).json({ error: "player not found", needJoin: true });
     }
-
     return res.json(publicPlayer(player));
   } catch (err) {
     console.error("ME ERROR:", err);
@@ -716,12 +729,10 @@ app.post("/api/presence", verifyExtensionJwt, async (req, res) => {
     if (!twitchUserId) {
       return res.status(401).json({ error: "identity not shared", needIdentity: true });
     }
-
     const player = await playersCollection.findOne({ twitch_user_id: twitchUserId });
     if (!player) {
       return res.status(404).json({ error: "player not found", needJoin: true });
     }
-
     const now = nowIso();
     const body = parseBody(req);
     const platform = String(body.platform || "unknown").slice(0, 32);
@@ -730,7 +741,6 @@ app.post("/api/presence", verifyExtensionJwt, async (req, res) => {
       { twitch_user_id: twitchUserId },
       { $set: { presence_online: true, presence_last_seen: now, presence_platform: platform, presence_updatedAt: now } }
     );
-
     return res.json({ ok: true, username: player.username, lastSeen: now });
   } catch (err) {
     console.error("PRESENCE ERROR:", err);
@@ -786,7 +796,7 @@ app.post("/api/action", verifyExtensionJwt, async (req, res) => {
       return res.status(401).json({ error: "identity not shared", needIdentity: true });
     }
 
-    const stat = normalizeActionStat(body.stat || body.attr || body.attribute || "");
+    const stat   = normalizeActionStat(body.stat || body.attr || body.attribute || "");
     const amount = normalizeActionAmount(body.amount || 1);
 
     if (!stat) return res.status(400).json({ error: "bad stat" });
@@ -798,7 +808,6 @@ app.post("/api/action", verifyExtensionJwt, async (req, res) => {
       twitch_user_id: twitchUserId,
       status: { $in: ["pending", "processing"] }
     });
-
     if (pendingCount >= 20) return res.status(429).json({ error: "too many pending actions" });
 
     const action = {
@@ -813,7 +822,6 @@ app.post("/api/action", verifyExtensionJwt, async (req, res) => {
 
     const insertResult = await actionsCollection.insertOne(action);
     const createdAction = await actionsCollection.findOne({ _id: insertResult.insertedId });
-
     return res.json({ ok: true, action: publicAction(createdAction) });
   } catch (err) {
     console.error("ACTION CREATE ERROR:", err);
@@ -852,7 +860,6 @@ app.get("/api/actions/pending", requireBotSecret, async (req, res) => {
       { _id: { $in: ids } },
       { $set: { status: "processing", lockedAt: nowIso(), updatedAt: nowIso() } }
     );
-
     return res.json({ ok: true, actions: actions.map(publicAction) });
   } catch (err) {
     console.error("ACTIONS PENDING ERROR:", err);
@@ -883,7 +890,6 @@ app.post("/api/actions/done", requireBotSecret, async (req, res) => {
 
     const action = result && result.value !== undefined ? result.value : result;
     if (!action) return res.status(404).json({ error: "action not found" });
-
     return res.json({ ok: true, action: publicAction(action) });
   } catch (err) {
     console.error("ACTION DONE ERROR:", err);
@@ -934,7 +940,6 @@ app.post("/api/update", async (req, res) => {
 
     const insertResult = await playersCollection.insertOne(newPlayer);
     const createdPlayer = await playersCollection.findOne({ _id: insertResult.insertedId });
-
     return res.json(publicPlayer(createdPlayer));
   } catch (err) {
     console.error("UPDATE ERROR:", err);
