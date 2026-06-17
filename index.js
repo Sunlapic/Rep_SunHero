@@ -545,7 +545,7 @@ app.get("/oauth/poll", (req, res) => {
    Показывает последние сохранённые OAuth токены
 ========================= */
 
-app.get("/api/auth/status", requireBotSecret, (req, res) => {
+app.get("/api/auth/status", (req, res) => {
   return res.json({
     ok: true,
     bot: savedAuth.bot
