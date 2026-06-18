@@ -127,6 +127,21 @@
     return fmt(raw, 1) + "%";
   }
 
+  function critPercent(p) {
+    var raw = firstNumber(p, [
+      "crit_chance",
+      "critChance",
+      "crit_percent",
+      "critPercent"
+    ], 0);
+
+    if (raw > 0 && raw <= 1) {
+      raw = raw * 100;
+    }
+
+    return fmt(raw, 1) + "%";
+  }
+
   function currentClass(p) {
     return p["class"] || "warrior";
   }
@@ -189,6 +204,8 @@
       armor: p.armor,
       magic_res: p.magic_res,
       attack_spd: p.attack_spd,
+      crit_chance: p.crit_chance,
+      crit_mult: p.crit_mult,
 
       dodge: p.dodge,
       dodge_chance: p.dodge_chance,
@@ -579,6 +596,7 @@
     var hpPct = hpPercent(p);
     var aps = attackPerSecond(p);
     var dodge = dodgePercent(p);
+    var crit = critPercent(p);
     var hints = statHints(p);
 
     setUI(
@@ -604,6 +622,11 @@
           '<div class="stat-line">' +
             '<div class="stat-name">Атака</div>' +
             '<div class="stat-value">⚔ ' + fmt(p.damage, 1) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Шанс крита</div>' +
+            '<div class="stat-value">✹ ' + crit + '</div>' +
           '</div>' +
 
           '<div class="stat-line">' +
