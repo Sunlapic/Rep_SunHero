@@ -135,6 +135,8 @@ function createPlayer(name) {
     armor: 0,
     magic_res: 0,
     attack_spd: 60,
+    crit_chance: 0,
+    crit_mult: 1.5,
     kills: 0,
     dodge: 0,
     dodge_chance: 0,
@@ -194,6 +196,10 @@ function publicPlayer(player) {
   if (!player) return null;
   const copy = { ...player };
   delete copy._id;
+
+  if (copy.crit_chance === undefined || copy.crit_chance === null) copy.crit_chance = 0;
+  if (copy.crit_mult === undefined || copy.crit_mult === null) copy.crit_mult = 1.5;
+
   return copy;
 }
 
@@ -205,6 +211,7 @@ const allowedFields = [
   "class", "gold",
   "strength", "agility", "intellect",
   "hp", "max_hp", "damage", "armor", "magic_res", "attack_spd", "kills",
+  "crit_chance", "crit_mult",
   "dodge", "dodge_chance", "dodge_percent", "evasion", "evasion_percent",
   "class_stats", "class_levels", "class_exp", "class_attr_points"
 ];
