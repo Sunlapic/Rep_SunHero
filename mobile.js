@@ -86,6 +86,18 @@
   }
 
   function attackPerSecond(p) {
+    var realAps = toNum(p.attack_aps_real, 0);
+
+    if (realAps > 0) {
+      return fmt(realAps, 1);
+    }
+
+    var realCycle = toNum(p.attack_cycle_frames_real, 0);
+
+    if (realCycle > 0) {
+      return fmt(60 / realCycle, 1);
+    }
+
     var cooldownFrames = toNum(p.attack_spd, 0);
 
     if (cooldownFrames <= 0) {
@@ -389,6 +401,8 @@
       armor: p.armor,
       magic_res: p.magic_res,
       attack_spd: p.attack_spd,
+      attack_cycle_frames_real: p.attack_cycle_frames_real,
+      attack_aps_real: p.attack_aps_real,
       crit_chance: p.crit_chance,
       crit_mult: p.crit_mult,
 
