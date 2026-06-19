@@ -135,6 +135,8 @@ function createPlayer(name) {
     armor: 0,
     magic_res: 0,
     attack_spd: 60,
+    attack_cycle_frames_real: 60,
+    attack_aps_real: 1,
     crit_chance: 0,
     crit_mult: 1.5,
     kills: 0,
@@ -200,6 +202,8 @@ function publicPlayer(player) {
 
   if (copy.crit_chance === undefined || copy.crit_chance === null) copy.crit_chance = 0;
   if (copy.crit_mult === undefined || copy.crit_mult === null) copy.crit_mult = 1.5;
+  if (copy.attack_cycle_frames_real === undefined || copy.attack_cycle_frames_real === null) copy.attack_cycle_frames_real = copy.attack_spd || 60;
+  if (copy.attack_aps_real === undefined || copy.attack_aps_real === null) copy.attack_aps_real = 1;
 
   const skillNodes = (copy.class_skill_nodes && typeof copy.class_skill_nodes === "object")
     ? copy.class_skill_nodes
@@ -222,6 +226,7 @@ const allowedFields = [
   "class", "gold",
   "strength", "agility", "intellect",
   "hp", "max_hp", "damage", "armor", "magic_res", "attack_spd", "kills",
+  "attack_cycle_frames_real", "attack_aps_real",
   "crit_chance", "crit_mult",
   "dodge", "dodge_chance", "dodge_percent", "evasion", "evasion_percent",
   "class_stats", "class_levels", "class_exp", "class_attr_points",
