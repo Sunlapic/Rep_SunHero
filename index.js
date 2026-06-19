@@ -249,6 +249,29 @@ function normalizeActionAmount(value) {
   return rounded;
 }
 
+function normalizeActionType(value) {
+  const raw = String(value || "").trim().toLowerCase();
+
+  if (["attr", "stat", "add_stat", "attribute"].includes(raw)) return "attr";
+  if (["skill_unlock", "skill", "unlock_skill", "skilltree", "passive_skill"].includes(raw)) return "skill_unlock";
+
+  return "";
+}
+
+function normalizeSkillClass(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (["warrior", "archer", "wizard"].includes(raw)) return raw;
+  return "";
+}
+
+function normalizeNodeId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_\-]/g, "")
+    .slice(0, 64);
+}
+
 function publicAction(action) {
   if (!action) return null;
   return {
@@ -256,6 +279,8 @@ function publicAction(action) {
     type: action.type,
     stat: action.stat,
     amount: action.amount,
+    class: action.class,
+    node_id: action.node_id,
     username: action.username,
     twitch_user_id: action.twitch_user_id,
     status: action.status,
@@ -815,13 +840,22 @@ app.post("/api/action", verifyExtensionJwt, async (req, res) => {
       return res.status(401).json({ error: "identity not shared", needIdentity: true });
     }
 
-    const stat   = normalizeActionStat(body.stat || body.attr || body.attribute || "");
-    const amount = normalizeActionAmount(body.amount || 1);
-
-    if (!stat) return res.status(400).json({ error: "bad stat" });
-
     const player = await playersCollection.findOne({ twitch_user_id: twitchUserId });
     if (!player) return res.status(404).json({ error: "player not found", needJoin: true });
+
+    let actionType = normalizeActionType(body.type || body.action || "");
+
+    if (!actionType) {
+      if (body.stat !== undefined || body.attr !== undefined || body.attribute !== undefined) {
+        actionType = "attr";
+      } else if (body.node_id !== undefined || body.nodeId !== undefined || body.skill_id !== undefined || body.skillId !== undefined) {
+        actionType = "skill_unlock";
+      }
+    }
+
+    if (!actionType) {
+      return res.status(400).json({ error: "bad action type" });
+    }
 
     const pendingCount = await actionsCollection.countDocuments({
       twitch_user_id: twitchUserId,
@@ -829,15 +863,50 @@ app.post("/api/action", verifyExtensionJwt, async (req, res) => {
     });
     if (pendingCount >= 20) return res.status(429).json({ error: "too many pending actions" });
 
-    const action = {
-      type: "attr", stat, amount,
-      username: player.username,
-      twitch_user_id: twitchUserId,
-      status: "pending",
-      source: "extension",
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    };
+    let action;
+
+    if (actionType === "attr") {
+      const stat   = normalizeActionStat(body.stat || body.attr || body.attribute || "");
+      const amount = normalizeActionAmount(body.amount || 1);
+
+      if (!stat) return res.status(400).json({ error: "bad stat" });
+
+      action = {
+        type: "attr",
+        stat,
+        amount,
+        username: player.username,
+        twitch_user_id: twitchUserId,
+        status: "pending",
+        source: "extension",
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+    } else if (actionType === "skill_unlock") {
+      const skillClass = normalizeSkillClass(
+        body.class || body.player_class || body.skill_class || player.class || ""
+      );
+      const nodeId = normalizeNodeId(
+        body.node_id || body.nodeId || body.skill_id || body.skillId || ""
+      );
+
+      if (!skillClass) return res.status(400).json({ error: "bad class" });
+      if (!nodeId) return res.status(400).json({ error: "bad node id" });
+
+      action = {
+        type: "skill_unlock",
+        class: skillClass,
+        node_id: nodeId,
+        username: player.username,
+        twitch_user_id: twitchUserId,
+        status: "pending",
+        source: "extension",
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+    } else {
+      return res.status(400).json({ error: "bad action type" });
+    }
 
     const insertResult = await actionsCollection.insertOne(action);
     const createdAction = await actionsCollection.findOne({ _id: insertResult.insertedId });
