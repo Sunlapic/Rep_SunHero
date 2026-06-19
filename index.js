@@ -27,9 +27,6 @@ const oauthTokens = {};
 
 // =============================================
 // OAUTH — постоянное хранилище последних токенов
-// Сохраняется пока сервер работает.
-// Пережить рестарт не может — но OAuth можно
-// пройти заново при следующем запуске лаунчера.
 // =============================================
 const savedAuth = {
   bot: null,
@@ -106,6 +103,87 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.text({ limit: "2mb", type: ["text/*", "application/text"] }));
+
+/* =========================
+   PRIVACY POLICY & TERMS OF SERVICE (HTML)
+   Добавлено для прохождения Twitch Review
+========================= */
+
+const PRIVACY_HTML = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Политика конфиденциальности — SunHero</title>
+  <style>body { background:#12121c; color:#ddd; font-family:Arial,sans-serif; padding:40px; line-height:1.6; max-width:800px; margin:auto; } h1,h2 { color:#7c5ce4; } a { color:#bb86fc; }</style>
+</head>
+<body>
+  <h1>Политика конфиденциальности (Privacy Policy)</h1>
+  <p><strong>Последнее обновление:</strong> 19 июня 2026</p>
+  
+  <h2>1. Какие данные мы собираем</h2>
+  <p>SunHero собирает следующие данные через Twitch Extension:</p>
+  <ul>
+    <li>Twitch User ID и username</li>
+    <li>Игровые данные персонажа: класс, уровень, очки характеристик, золото, убийства, статистика (сила, ловкость, интеллект и т.д.)</li>
+    <li>Данные о присутствии (когда зритель открыл панель расширения)</li>
+  </ul>
+
+  <h2>2. Для чего используются данные</h2>
+  <p>Данные используются исключительно для:</p>
+  <ul>
+    <li>Сохранения прогресса вашего персонажа между стримами</li>
+    <li>Отображения актуальной статистики в панели расширения</li>
+    <li>Обработки действий прокачки (STR/AGI/INT, смена класса, сброс очков)</li>
+  </ul>
+
+  <h2>3. Хранение данных</h2>
+  <p>Данные хранятся в базе MongoDB Atlas (США). Мы не передаём ваши данные третьим лицам.</p>
+
+  <h2>4. Ваши права</h2>
+  <p>Вы можете в любое время запросить удаление всех ваших данных, написав на почту <strong>Serjantos@yandex.ru</strong>.</p>
+
+  <h2>5. Контакты</h2>
+  <p>По всем вопросам, связанным с конфиденциальностью, пишите: <strong>Serjantos@yandex.ru</strong></p>
+
+  <hr>
+  <p>This policy is also available in English upon request.</p>
+</body>
+</html>`;
+
+const TOS_HTML = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Условия использования — SunHero</title>
+  <style>body { background:#12121c; color:#ddd; font-family:Arial,sans-serif; padding:40px; line-height:1.6; max-width:800px; margin:auto; } h1,h2 { color:#7c5ce4; } a { color:#bb86fc; }</style>
+</head>
+<body>
+  <h1>Условия использования (Terms of Service)</h1>
+  <p><strong>Последнее обновление:</strong> 19 июня 2026</p>
+
+  <h2>1. Общие положения</h2>
+  <p>SunHero предоставляется «как есть» (as is). Мы не даём никаких гарантий бесперебойной работы или сохранности данных.</p>
+
+  <h2>2. Запрещённые действия</h2>
+  <ul>
+    <li>Использование ботов, скриптов и любой автоматизации для прокачки</li>
+    <li>Попытки взлома или злоупотребления API</li>
+    <li>Использование расширения в целях, противоречащих правилам Twitch</li>
+  </ul>
+
+  <h2>3. Последствия нарушения</h2>
+  <p>Нарушение условий может привести к блокировке вашего персонажа или Twitch-аккаунта в рамках расширения без предупреждения.</p>
+
+  <h2>4. Ограничение ответственности</h2>
+  <p>Разработчик не несёт ответственности за потерю игрового прогресса, ошибочные действия или любой другой ущерб.</p>
+
+  <h2>5. Изменения условий</h2>
+  <p>Мы оставляем за собой право изменять данные условия в любое время. Продолжение использования расширения означает согласие с новыми условиями.</p>
+
+  <hr>
+  <p>По вопросам пишите: Serjantos@yandex.ru</p>
+</body>
+</html>`;
 
 /* =========================
    HELPERS
@@ -323,7 +401,9 @@ app.get("/", (req, res) => {
       "POST /api/join",
       "POST /api/update",
       "POST /api/presence",
-      "GET /api/presence/active"
+      "GET /api/presence/active",
+      "GET /privacy",           // ← добавлено
+      "GET /tos"                // ← добавлено
     ]
   });
 });
@@ -505,7 +585,6 @@ app.post("/oauth/save",
       let username = "";
       const cleanToken = token.replace("oauth:", "");
 
-      // Валидируем через Twitch /validate
       try {
         const validateResp = await fetch("https://id.twitch.tv/oauth2/validate", {
           method: "GET",
@@ -520,7 +599,6 @@ app.post("/oauth/save",
         console.error("OAuth validate error:", err.message);
       }
 
-      // Fallback через Helix
       if (!username) {
         try {
           const helixResp = await fetch("https://api.twitch.tv/helix/users", {
@@ -539,13 +617,11 @@ app.post("/oauth/save",
         }
       }
 
-      // Сохраняем одноразово для polling
       oauthTokens[session_id] = {
         token, type, username, scope,
         expires: Date.now() + 5 * 60 * 1000
       };
 
-      // Сохраняем постоянно для /api/auth/status и /api/auth/bot-token
       savedAuth[type] = {
         token,
         username,
@@ -593,32 +669,23 @@ app.get("/oauth/poll", (req, res) => {
 });
 
 /* =========================
-   AUTH STATUS — для кнопки "Проверить статус" в лаунчере
-   Показывает последние сохранённые OAuth токены
+   AUTH STATUS
 ========================= */
 
 app.get("/api/auth/status", (req, res) => {
   return res.json({
     ok: true,
     bot: savedAuth.bot
-      ? {
-          connected: true,
-          login: savedAuth.bot.username || "",
-          savedAt: savedAuth.bot.savedAt || ""
-        }
+      ? { connected: true, login: savedAuth.bot.username || "", savedAt: savedAuth.bot.savedAt || "" }
       : { connected: false },
     channel: savedAuth.channel
-      ? {
-          connected: true,
-          login: savedAuth.channel.username || "",
-          savedAt: savedAuth.channel.savedAt || ""
-        }
+      ? { connected: true, login: savedAuth.channel.username || "", savedAt: savedAuth.channel.savedAt || "" }
       : { connected: false }
   });
 });
 
 /* =========================
-   AUTH BOT TOKEN — для получения токена бота
+   AUTH BOT TOKEN
 ========================= */
 
 app.get("/api/auth/bot-token", requireBotSecret, (req, res) => {
@@ -1082,6 +1149,20 @@ app.post("/api/update", async (req, res) => {
     console.error("UPDATE ERROR:", err);
     return res.status(500).json({ error: "db error", message: err.message });
   }
+});
+
+/* =========================
+   PRIVACY & TOS ROUTES (ДОБАВЛЕНО)
+========================= */
+
+app.get("/privacy", (req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(PRIVACY_HTML);
+});
+
+app.get("/tos", (req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(TOS_HTML);
 });
 
 /* =========================
