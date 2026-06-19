@@ -379,9 +379,10 @@
     }
 
     return (
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;">' +
-        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + '">Персонаж</button>' +
-        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + '">Скилы</button>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">' +
+        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Персонаж</button>' +
+        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Скилы</button>' +
+        '<button class="btn" data-view="class" style="' + tabStyle(view === "class") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Класс</button>' +
       '</div>'
     );
   }
@@ -478,11 +479,6 @@
     }
   }
 
-  /* =========================
-     ✅ НОВОЕ: PRESENCE HEARTBEAT
-     platform: "mobile" — отличие от panel.js
-  ========================= */
-
   function sendPresence() {
     if (!twitchReady || !twitchToken) return;
     if (!isViewerLinked()) return;
@@ -508,8 +504,6 @@
     presenceTimer = setInterval(sendPresence, 15000);
   }
 
-  // ✅ КОНЕЦ НОВОЕ
-
   function sendAction(stat, amount) {
     if (!twitchReady || !twitchToken) {
       showHint("Twitch ещё не готов. Попробуй через секунду.");
@@ -521,7 +515,6 @@
 
     function done(message) {
       if (finished) return;
-
       finished = true;
       showHint(message);
     }
@@ -607,7 +600,6 @@
 
     function done(message) {
       if (finished) return;
-
       finished = true;
       showHint(message);
     }
@@ -683,6 +675,259 @@
     }
   }
 
+  function sendReclass(newClass) {
+    if (!twitchReady || !twitchToken) {
+      showHint("Twitch ещё не готов. Попробуй через секунду.");
+      return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    var finished = false;
+
+    function done(message) {
+      if (finished) return;
+      finished = true;
+      showHint(message);
+    }
+
+    try {
+      xhr.open("POST", API + "/api/action", true);
+      xhr.timeout = TIMEOUT_MS;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+
+        var data = null;
+
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch (e) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          done("✓ Рекласс отправлен в игру");
+
+          setTimeout(function () {
+            lastRenderKey = "";
+            load();
+          }, 2500);
+
+          return;
+        }
+
+        if (data && data.needJoin) {
+          done("Сначала напиши !join в чат");
+          return;
+        }
+
+        if (data && data.needIdentity) {
+          done("Нужно разрешить Twitch ID");
+          return;
+        }
+
+        if (data && data.error === "too many pending actions") {
+          done("Слишком много команд в очереди. Подожди.");
+          return;
+        }
+
+        if (data && data.error) {
+          done("Ошибка: " + data.error);
+          return;
+        }
+
+        done("Ошибка отправки рекласса");
+      };
+
+      xhr.onerror = function () {
+        done("Ошибка сети");
+      };
+
+      xhr.ontimeout = function () {
+        done("Timeout отправки");
+      };
+
+      xhr.send(JSON.stringify({
+        type: "reclass",
+        new_class: newClass
+      }));
+    } catch (e) {
+      done("Ошибка: " + e.message);
+    }
+  }
+
+  function sendResetAttrs() {
+    if (!twitchReady || !twitchToken) {
+      showHint("Twitch ещё не готов. Попробуй через секунду.");
+      return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    var finished = false;
+
+    function done(message) {
+      if (finished) return;
+      finished = true;
+      showHint(message);
+    }
+
+    try {
+      xhr.open("POST", API + "/api/action", true);
+      xhr.timeout = TIMEOUT_MS;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+
+        var data = null;
+
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch (e) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          done("✓ Сброс атрибутов отправлен");
+
+          setTimeout(function () {
+            lastRenderKey = "";
+            load();
+          }, 2500);
+
+          return;
+        }
+
+        if (data && data.needJoin) {
+          done("Сначала напиши !join в чат");
+          return;
+        }
+
+        if (data && data.needIdentity) {
+          done("Нужно разрешить Twitch ID");
+          return;
+        }
+
+        if (data && data.error === "too many pending actions") {
+          done("Слишком много команд в очереди. Подожди.");
+          return;
+        }
+
+        if (data && data.error) {
+          done("Ошибка: " + data.error);
+          return;
+        }
+
+        done("Ошибка отправки сброса");
+      };
+
+      xhr.onerror = function () {
+        done("Ошибка сети");
+      };
+
+      xhr.ontimeout = function () {
+        done("Timeout отправки");
+      };
+
+      xhr.send(JSON.stringify({
+        type: "reset_attrs"
+      }));
+    } catch (e) {
+      done("Ошибка: " + e.message);
+    }
+  }
+
+  function sendResetSkilltree() {
+    if (!twitchReady || !twitchToken) {
+      showHint("Twitch ещё не готов. Попробуй через секунду.");
+      return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    var finished = false;
+
+    function done(message) {
+      if (finished) return;
+      finished = true;
+      showHint(message);
+    }
+
+    try {
+      xhr.open("POST", API + "/api/action", true);
+      xhr.timeout = TIMEOUT_MS;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+
+        var data = null;
+
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch (e) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          done("✓ Сброс дерева отправлен");
+
+          setTimeout(function () {
+            lastRenderKey = "";
+            load();
+          }, 2500);
+
+          return;
+        }
+
+        if (data && data.needJoin) {
+          done("Сначала напиши !join в чат");
+          return;
+        }
+
+        if (data && data.needIdentity) {
+          done("Нужно разрешить Twitch ID");
+          return;
+        }
+
+        if (data && data.error === "too many pending actions") {
+          done("Слишком много команд в очереди. Подожди.");
+          return;
+        }
+
+        if (data && data.error) {
+          done("Ошибка: " + data.error);
+          return;
+        }
+
+        done("Ошибка отправки сброса дерева");
+      };
+
+      xhr.onerror = function () {
+        done("Ошибка сети");
+      };
+
+      xhr.ontimeout = function () {
+        done("Timeout отправки");
+      };
+
+      xhr.send(JSON.stringify({
+        type: "reset_skilltree"
+      }));
+    } catch (e) {
+      done("Ошибка: " + e.message);
+    }
+  }
+
   function requestJsonWithJwt(url, done, fail) {
     if (currentXhr) {
       try {
@@ -705,7 +950,6 @@
 
     function endError(message) {
       if (finished) return;
-
       finished = true;
       cleanup();
       fail(new Error(message));
@@ -713,7 +957,6 @@
 
     function endOk(data) {
       if (finished) return;
-
       finished = true;
       cleanup();
       done(data);
@@ -1007,6 +1250,94 @@
     bindButtons();
   }
 
+  function renderClassView(p) {
+    var key = playerKey(p);
+
+    if (lastRenderKey === key) return;
+
+    lastRenderKey = key;
+    lastErrorKey = "";
+
+    var cls = currentClass(p);
+    var lvl = currentLevel(p);
+    var gold = toNum(p.gold, 0);
+    var attrPts = currentPoints(p);
+    var passivePts = skillPointsFree(p);
+
+    function classBtn(label, value, color1, color2) {
+      var isCurrent = cls === value;
+      var extra = isCurrent ? "opacity:0.65;" : "";
+      var text = isCurrent ? label + " ✓" : label;
+
+      return (
+        '<button class="btn" ' +
+          'data-reclass="' + escapeHtml(value) + '" ' +
+          'data-currentclass="' + (isCurrent ? '1' : '0') + '" ' +
+          'style="background:linear-gradient(135deg,' + color1 + ',' + color2 + ');' + extra + '">' +
+          text +
+          '<small>' + (isCurrent ? 'Текущий класс' : '50 золота') + '</small>' +
+        '</button>'
+      );
+    }
+
+    setUI(
+      '<div class="card">' +
+
+        viewTabsHtml("class") +
+
+        '<div class="top">' +
+          '<div class="name">' + escapeHtml(p.username || "-") + '</div>' +
+          '<div class="class">' + escapeHtml(cls) + ' · ' + fmt(lvl) + ' ур.</div>' +
+        '</div>' +
+
+        '<div class="stat-list">' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Текущий класс</div>' +
+            '<div class="stat-value">' + escapeHtml(cls) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Золото</div>' +
+            '<div class="stat-value gold">🪙 ' + fmt(gold) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Очки атрибутов</div>' +
+            '<div class="stat-value">✨ ' + fmt(attrPts) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Очки пассивок</div>' +
+            '<div class="stat-value">🌿 ' + fmt(passivePts) + '</div>' +
+          '</div>' +
+
+        '</div>' +
+
+        '<div style="color:#fbbf24;text-align:center;font-size:16px;font-weight:900;margin:10px 0 8px;">Смена класса</div>' +
+
+        '<div class="btns">' +
+          classBtn("Воин", "warrior", "#7f1d1d", "#ef4444") +
+          classBtn("Лучник", "archer", "#065f46", "#22c55e") +
+          classBtn("Маг", "wizard", "#312e81", "#8b5cf6") +
+        '</div>' +
+
+        '<div style="color:#fbbf24;text-align:center;font-size:16px;font-weight:900;margin:10px 0 8px;">Сброс</div>' +
+
+        '<div class="btns">' +
+          '<button class="btn b-open" data-reset="attrs">Сброс атрибутов<small>Пока бесплатно</small></button>' +
+          '<button class="btn b-open" data-reset="skilltree">Сброс дерева<small>Пока бесплатно</small></button>' +
+        '</div>' +
+
+        '<div class="hint" id="hint">Рекласс стоит 50 золота. Сбросы сейчас бесплатные.</div>' +
+
+      '</div>',
+      ""
+    );
+
+    bindButtons();
+  }
+
   function renderPlayer(p) {
     var key = playerKey(p);
 
@@ -1107,9 +1438,7 @@
 
         '</div>' +
 
-        '<div class="hint" id="hint">' +
-          'Нажми кнопку — команда отправится в игру.' +
-        '</div>' +
+        '<div class="hint" id="hint">Нажми кнопку — команда отправится в игру.</div>' +
 
       '</div>',
       ""
@@ -1123,6 +1452,11 @@
 
     if (currentView === "skills") {
       renderSkillTree(p);
+      return;
+    }
+
+    if (currentView === "class") {
+      renderClassView(p);
       return;
     }
 
@@ -1155,7 +1489,7 @@
       viewButtons[k].addEventListener("click", function () {
         var view = this.getAttribute("data-view") || "stats";
 
-        if (view !== "stats" && view !== "skills") {
+        if (view !== "stats" && view !== "skills" && view !== "class") {
           view = "stats";
         }
 
@@ -1190,6 +1524,39 @@
         }
 
         sendSkillUnlock(playerClass, nodeId);
+      });
+    }
+
+    var reclassButtons = document.querySelectorAll("[data-reclass]");
+
+    for (var r = 0; r < reclassButtons.length; r++) {
+      reclassButtons[r].addEventListener("click", function () {
+        var isCurrent = this.getAttribute("data-currentclass") === "1";
+        var nextClass = this.getAttribute("data-reclass") || "";
+
+        if (isCurrent) {
+          showHint("Этот класс уже выбран.");
+          return;
+        }
+
+        sendReclass(nextClass);
+      });
+    }
+
+    var resetButtons = document.querySelectorAll("[data-reset]");
+
+    for (var q = 0; q < resetButtons.length; q++) {
+      resetButtons[q].addEventListener("click", function () {
+        var kind = this.getAttribute("data-reset") || "";
+
+        if (kind === "attrs") {
+          sendResetAttrs();
+          return;
+        }
+
+        if (kind === "skilltree") {
+          sendResetSkilltree();
+        }
       });
     }
   }
