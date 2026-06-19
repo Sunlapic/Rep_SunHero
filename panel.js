@@ -86,6 +86,18 @@
   }
 
   function attackPerSecond(p) {
+    var realAps = toNum(p.attack_aps_real, 0);
+
+    if (realAps > 0) {
+      return fmt(realAps, 1);
+    }
+
+    var realCycle = toNum(p.attack_cycle_frames_real, 0);
+
+    if (realCycle > 0) {
+      return fmt(60 / realCycle, 1);
+    }
+
     var cooldownFrames = toNum(p.attack_spd, 0);
 
     if (cooldownFrames <= 0) {
@@ -367,9 +379,9 @@
     }
 
     return (
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
-        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + '">Персонаж</button>' +
-        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + '">Дерево скилов</button>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">' +
+        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + 'min-height:38px;padding:6px 8px;font-size:15px;line-height:1.1;white-space:nowrap;">Персонаж</button>' +
+        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + 'min-height:38px;padding:6px 8px;font-size:15px;line-height:1.1;white-space:nowrap;">Скилы</button>' +
       '</div>'
     );
   }
@@ -389,6 +401,8 @@
       armor: p.armor,
       magic_res: p.magic_res,
       attack_spd: p.attack_spd,
+      attack_cycle_frames_real: p.attack_cycle_frames_real,
+      attack_aps_real: p.attack_aps_real,
       crit_chance: p.crit_chance,
       crit_mult: p.crit_mult,
 
@@ -1262,7 +1276,7 @@
       twitchReady = true;
 
       startPolling();
-      startPresence(); // ✅ НОВОЕ: запускаем heartbeat после авторизации
+      startPresence();
     });
 
     window.Twitch.ext.onContext(function (ctx) {
@@ -1285,13 +1299,13 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) {
       load();
-      sendPresence(); // ✅ НОВОЕ: вернулся на вкладку — сразу пингуем
+      sendPresence();
     }
   });
 
   window.addEventListener("focus", function () {
     load();
-    sendPresence(); // ✅ НОВОЕ: фокус на окне — сразу пингуем
+    sendPresence();
   });
 
   initTwitch();
