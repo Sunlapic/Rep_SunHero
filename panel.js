@@ -275,19 +275,19 @@
   function branchTitle(cls, branch) {
     var map = {
       warrior: {
-        tank: "Ветка ТАНКА",
-        berserk: "Ветка БЕРСЕРКА",
-        duel: "Ветка ДУЭЛЯНТА"
+        tank: "ТАНК",
+        berserk: "БЕРСЕРК",
+        duel: "ДУЭЛЯНТ"
       },
       archer: {
-        speed: "Ветка СКОРОСТРЕЛА",
-        crit: "Ветка КРИТА",
-        range: "Ветка ДАЛЬНОБОЙНОСТИ"
+        speed: "СКОРОСТРЕЛ",
+        crit: "КРИТ",
+        range: "ДАЛЬНОБОЙНОСТЬ"
       },
       wizard: {
-        fire: "Ветка ОГНЯ",
-        range: "Ветка ДАЛЬНОСТИ",
-        ward: "Ветка ЗАЩИТЫ"
+        fire: "ОГОНЬ",
+        range: "ДАЛЬНОСТЬ",
+        ward: "ЗАЩИТА"
       }
     };
 
@@ -379,10 +379,10 @@
     }
 
     return (
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">' +
-        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + 'min-height:38px;padding:6px 8px;font-size:14px;line-height:1.1;white-space:nowrap;">Персонаж</button>' +
-        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + 'min-height:38px;padding:6px 8px;font-size:14px;line-height:1.1;white-space:nowrap;">Скилы</button>' +
-        '<button class="btn" data-view="class" style="' + tabStyle(view === "class") + 'min-height:38px;padding:6px 8px;font-size:14px;line-height:1.1;white-space:nowrap;">Класс</button>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">' +
+        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Персонаж</button>' +
+        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Скилы</button>' +
+        '<button class="btn" data-view="class" style="' + tabStyle(view === "class") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Класс</button>' +
       '</div>'
     );
   }
@@ -493,7 +493,7 @@
       xhr.setRequestHeader("Accept", "application/json");
       xhr.setRequestHeader("x-extension-jwt", twitchToken);
 
-      xhr.send(JSON.stringify({ platform: "panel" }));
+      xhr.send(JSON.stringify({ platform: "mobile" }));
     } catch (e) {}
   }
 
@@ -1146,8 +1146,8 @@
       var nodes = branchMap[branch];
 
       branchesHtml +=
-        '<div style="margin-top:12px;padding:10px;border-radius:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.08);">' +
-          '<div style="color:#fbbf24;font-weight:900;font-size:16px;text-align:center;margin-bottom:8px;">' +
+        '<div style="margin-top:10px;padding:9px;border-radius:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.08);">' +
+          '<div style="color:#fbbf24;font-weight:900;font-size:14px;text-align:center;margin-bottom:6px;">' +
             escapeHtml(branchTitle(cls, branch)) +
           '</div>';
 
@@ -1157,7 +1157,6 @@
 
         var bg = "#2a2236";
         var border = "rgba(255,255,255,0.10)";
-        var titleColor = "#ffffff";
         var badge = "Закрыто";
         var lockMsg = "Узел пока недоступен.";
 
@@ -1174,8 +1173,8 @@
         } else if (state === "locked_req") {
           bg = "linear-gradient(135deg,#2b2238,#3a2e50)";
           border = "rgba(255,255,255,0.10)";
-          badge = "Нужен предыдущий узел";
-          lockMsg = "Сначала открой предыдущий узел в этой ветке.";
+          badge = "Нужен предыдущий";
+          lockMsg = "Сначала открой предыдущий узел.";
         } else if (state === "locked_points") {
           bg = "linear-gradient(135deg,#2b2238,#3a2e50)";
           border = "rgba(255,255,255,0.10)";
@@ -1189,14 +1188,14 @@
             'data-skill-class="' + escapeHtml(cls) + '" ' +
             'data-skill-state="' + escapeHtml(state) + '" ' +
             'data-lockmsg="' + escapeHtml(lockMsg) + '" ' +
-            'style="margin-top:8px;text-align:left;min-height:72px;padding:10px 12px;background:' + bg + ';border:1px solid ' + border + ';">' +
-              '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
-                '<div style="font-size:16px;font-weight:900;color:' + titleColor + ';">' + escapeHtml(node.title) + '</div>' +
-                '<div style="font-size:12px;color:#f8e7b8;white-space:nowrap;">T' + escapeHtml(node.tier) + '</div>' +
+            'style="margin-top:7px;text-align:left;min-height:66px;padding:9px 10px;background:' + bg + ';border:1px solid ' + border + ';">' +
+              '<div style="display:flex;justify-content:space-between;gap:8px;">' +
+                '<div style="font-size:14px;font-weight:900;color:#fff;">' + escapeHtml(node.title) + '</div>' +
+                '<div style="font-size:11px;color:#f8e7b8;white-space:nowrap;">T' + escapeHtml(node.tier) + '</div>' +
               '</div>' +
-              '<div style="font-size:13px;opacity:0.92;margin-top:4px;color:#f8e7b8;line-height:1.25;">' + escapeHtml(node.desc) + '</div>' +
-              '<div style="font-size:12px;opacity:0.9;margin-top:6px;color:#fff;">' +
-                badge + ' · Цена: ' + fmt(node.cost || 1) +
+              '<div style="font-size:12px;opacity:0.92;margin-top:3px;color:#f8e7b8;line-height:1.2;">' + escapeHtml(node.desc) + '</div>' +
+              '<div style="font-size:11px;opacity:0.9;margin-top:5px;color:#fff;">' +
+                badge + ' · ' + fmt(node.cost || 1) + ' оч.' +
               '</div>' +
           '</button>';
       }
@@ -1238,12 +1237,11 @@
 
         '</div>' +
 
-        '<div class="mini">1 очко пассивок даётся каждые 5 уровней текущего класса.</div>' +
-        '<div class="mini">Сменишь класс — откроется дерево этого класса.</div>' +
+        '<div class="mini">1 очко каждые 5 уровней текущего класса.</div>' +
 
         branchesHtml +
 
-        '<div class="hint" id="hint">Нажми доступный узел, чтобы отправить его в игру.</div>' +
+        '<div class="hint" id="hint">Нажми доступный узел.</div>' +
 
       '</div>',
       ""
@@ -1268,13 +1266,8 @@
 
     function classBtn(label, value, color1, color2) {
       var isCurrent = cls === value;
-      var extra = isCurrent
-        ? 'opacity:0.65;'
-        : '';
-
-      var text = isCurrent
-        ? label + ' ✓'
-        : label;
+      var extra = isCurrent ? "opacity:0.65;" : "";
+      var text = isCurrent ? label + " ✓" : label;
 
       return (
         '<button class="btn" ' +
@@ -1282,7 +1275,7 @@
           'data-currentclass="' + (isCurrent ? '1' : '0') + '" ' +
           'style="background:linear-gradient(135deg,' + color1 + ',' + color2 + ');' + extra + '">' +
           text +
-          '<small>' + (isCurrent ? 'Текущий класс' : 'Стоимость: 50 золота') + '</small>' +
+          '<small>' + (isCurrent ? 'Текущий класс' : '50 золота') + '</small>' +
         '</button>'
       );
     }
@@ -1321,7 +1314,7 @@
 
         '</div>' +
 
-        '<div class="attr-title">Смена класса</div>' +
+        '<div style="color:#fbbf24;text-align:center;font-size:16px;font-weight:900;margin:10px 0 8px;">Смена класса</div>' +
 
         '<div class="btns">' +
           classBtn("Воин", "warrior", "#7f1d1d", "#ef4444") +
@@ -1329,16 +1322,14 @@
           classBtn("Маг", "wizard", "#312e81", "#8b5cf6") +
         '</div>' +
 
-        '<div class="attr-title">Сброс</div>' +
+        '<div style="color:#fbbf24;text-align:center;font-size:16px;font-weight:900;margin:10px 0 8px;">Сброс</div>' +
 
         '<div class="btns">' +
           '<button class="btn b-open" data-reset="attrs">Сброс атрибутов<small>Пока бесплатно</small></button>' +
           '<button class="btn b-open" data-reset="skilltree">Сброс дерева<small>Пока бесплатно</small></button>' +
         '</div>' +
 
-        '<div class="hint" id="hint">' +
-          'Рекласс стоит 50 золота. Сбросы сейчас бесплатные.' +
-        '</div>' +
+        '<div class="hint" id="hint">Рекласс стоит 50 золота. Сбросы сейчас бесплатные.</div>' +
 
       '</div>',
       ""
@@ -1447,9 +1438,7 @@
 
         '</div>' +
 
-        '<div class="hint" id="hint">' +
-          'Нажми кнопку — команда отправится в игру.' +
-        '</div>' +
+        '<div class="hint" id="hint">Нажми кнопку — команда отправится в игру.</div>' +
 
       '</div>',
       ""
