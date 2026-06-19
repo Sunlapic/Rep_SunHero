@@ -17,7 +17,7 @@
   var lastRenderKey = "";
   var lastErrorKey = "";
 
-  var presenceTimer = null; // ✅ НОВОЕ
+  var presenceTimer = null;
 
   var currentView = "stats";
   var currentPlayerData = null;
@@ -220,54 +220,54 @@
   function skillTreeDefs() {
     return {
       warrior: [
-        { id: "war_tank_1",    title: "Железная кожа I",  desc: "+4 брони",                              branch: "tank",    tier: 1, cost: 1, requires: [] },
-        { id: "war_tank_2",    title: "Стойкое тело",     desc: "+50 HP",                                branch: "tank",    tier: 2, cost: 1, requires: ["war_tank_1"] },
-        { id: "war_tank_3",    title: "Железная кожа II", desc: "+6 брони, +3 маг. защиты",             branch: "tank",    tier: 3, cost: 1, requires: ["war_tank_2"] },
-        { id: "war_tank_4",    title: "Колосс",           desc: "+90 HP, +8 брони",                      branch: "tank",    tier: 4, cost: 1, requires: ["war_tank_3"] },
+        { id: "war_tank_1", title: "Железная кожа I", desc: "+4 брони", branch: "tank", tier: 1, cost: 1, requires: [] },
+        { id: "war_tank_2", title: "Стойкое тело", desc: "+50 HP", branch: "tank", tier: 2, cost: 1, requires: ["war_tank_1"] },
+        { id: "war_tank_3", title: "Железная кожа II", desc: "+6 брони, +3 маг. защиты", branch: "tank", tier: 3, cost: 1, requires: ["war_tank_2"] },
+        { id: "war_tank_4", title: "Колосс", desc: "+90 HP, +8 брони", branch: "tank", tier: 4, cost: 1, requires: ["war_tank_3"] },
 
-        { id: "war_berserk_1", title: "Тяжёлый удар",     desc: "+5 урона",                              branch: "berserk", tier: 1, cost: 1, requires: [] },
-        { id: "war_berserk_2", title: "Боевой ритм",      desc: "Атака быстрее на 2 кадра",             branch: "berserk", tier: 2, cost: 1, requires: ["war_berserk_1"] },
-        { id: "war_berserk_3", title: "Палач",            desc: "+6 урона, +0.20 крит. урона",          branch: "berserk", tier: 3, cost: 1, requires: ["war_berserk_2"] },
-        { id: "war_berserk_4", title: "Кровавая ярость",  desc: "+12 урона, атака быстрее на 3 кадра",  branch: "berserk", tier: 4, cost: 1, requires: ["war_berserk_3"] },
+        { id: "war_berserk_1", title: "Тяжёлый удар", desc: "+5 урона", branch: "berserk", tier: 1, cost: 1, requires: [] },
+        { id: "war_berserk_2", title: "Боевой ритм", desc: "Атака быстрее на 2 кадра", branch: "berserk", tier: 2, cost: 1, requires: ["war_berserk_1"] },
+        { id: "war_berserk_3", title: "Палач", desc: "+6 урона, +0.20 крит. урона", branch: "berserk", tier: 3, cost: 1, requires: ["war_berserk_2"] },
+        { id: "war_berserk_4", title: "Кровавая ярость", desc: "+12 урона, атака быстрее на 3 кадра", branch: "berserk", tier: 4, cost: 1, requires: ["war_berserk_3"] },
 
-        { id: "war_duel_1",    title: "Острый клинок I",  desc: "+3% шанса крита",                       branch: "duel",    tier: 1, cost: 1, requires: [] },
-        { id: "war_duel_2",    title: "Устойчивая стойка",desc: "+4% уворота",                           branch: "duel",    tier: 2, cost: 1, requires: ["war_duel_1"] },
-        { id: "war_duel_3",    title: "Острый клинок II", desc: "+5% шанса крита",                       branch: "duel",    tier: 3, cost: 1, requires: ["war_duel_2"] },
-        { id: "war_duel_4",    title: "Мастер дуэли",     desc: "+0.25 крит. урона, +6% уворота",       branch: "duel",    tier: 4, cost: 1, requires: ["war_duel_3"] }
+        { id: "war_duel_1", title: "Острый клинок I", desc: "+3% шанса крита", branch: "duel", tier: 1, cost: 1, requires: [] },
+        { id: "war_duel_2", title: "Устойчивая стойка", desc: "+4% уворота", branch: "duel", tier: 2, cost: 1, requires: ["war_duel_1"] },
+        { id: "war_duel_3", title: "Острый клинок II", desc: "+5% шанса крита", branch: "duel", tier: 3, cost: 1, requires: ["war_duel_2"] },
+        { id: "war_duel_4", title: "Мастер дуэли", desc: "+0.25 крит. урона, +6% уворота", branch: "duel", tier: 4, cost: 1, requires: ["war_duel_3"] }
       ],
 
       archer: [
-        { id: "arc_speed_1",   title: "Быстрые пальцы I", desc: "Атака быстрее на 2 кадра",             branch: "speed", tier: 1, cost: 1, requires: [] },
-        { id: "arc_speed_2",   title: "Быстрые пальцы II",desc: "Атака быстрее на 3 кадра",             branch: "speed", tier: 2, cost: 1, requires: ["arc_speed_1"] },
-        { id: "arc_speed_3",   title: "Лёгкая тетива",    desc: "+1 к скорости стрелы",                  branch: "speed", tier: 3, cost: 1, requires: ["arc_speed_2"] },
-        { id: "arc_speed_4",   title: "Стальной дождь",   desc: "Атака быстрее на 4 кадра, +1 к скорости стрелы", branch: "speed", tier: 4, cost: 1, requires: ["arc_speed_3"] },
+        { id: "arc_speed_1", title: "Быстрые пальцы I", desc: "Атака быстрее на 2 кадра", branch: "speed", tier: 1, cost: 1, requires: [] },
+        { id: "arc_speed_2", title: "Быстрые пальцы II", desc: "Атака быстрее на 3 кадра", branch: "speed", tier: 2, cost: 1, requires: ["arc_speed_1"] },
+        { id: "arc_speed_3", title: "Лёгкая тетива", desc: "+1 к скорости стрелы", branch: "speed", tier: 3, cost: 1, requires: ["arc_speed_2"] },
+        { id: "arc_speed_4", title: "Стальной дождь", desc: "Атака быстрее на 4 кадра, +1 к скорости стрелы", branch: "speed", tier: 4, cost: 1, requires: ["arc_speed_3"] },
 
-        { id: "arc_crit_1",    title: "Орлиный глаз I",   desc: "+4% шанса крита",                       branch: "crit",  tier: 1, cost: 1, requires: [] },
-        { id: "arc_crit_2",    title: "Зазубренные наконечники", desc: "+0.15 крит. урона",             branch: "crit",  tier: 2, cost: 1, requires: ["arc_crit_1"] },
-        { id: "arc_crit_3",    title: "Орлиный глаз II",  desc: "+6% шанса крита",                       branch: "crit",  tier: 3, cost: 1, requires: ["arc_crit_2"] },
-        { id: "arc_crit_4",    title: "Сердцеед",         desc: "+4% шанса крита, +0.25 крит. урона",   branch: "crit",  tier: 4, cost: 1, requires: ["arc_crit_3"] },
+        { id: "arc_crit_1", title: "Орлиный глаз I", desc: "+4% шанса крита", branch: "crit", tier: 1, cost: 1, requires: [] },
+        { id: "arc_crit_2", title: "Зазубренные наконечники", desc: "+0.15 крит. урона", branch: "crit", tier: 2, cost: 1, requires: ["arc_crit_1"] },
+        { id: "arc_crit_3", title: "Орлиный глаз II", desc: "+6% шанса крита", branch: "crit", tier: 3, cost: 1, requires: ["arc_crit_2"] },
+        { id: "arc_crit_4", title: "Сердцеед", desc: "+4% шанса крита, +0.25 крит. урона", branch: "crit", tier: 4, cost: 1, requires: ["arc_crit_3"] },
 
-        { id: "arc_range_1",   title: "Длинный лук",      desc: "+28 к дальности атаки",                 branch: "range", tier: 1, cost: 1, requires: [] },
-        { id: "arc_range_2",   title: "Устойчивая стойка",desc: "+70 к дальности полёта стрелы",        branch: "range", tier: 2, cost: 1, requires: ["arc_range_1"] },
-        { id: "arc_range_3",   title: "Соколиный взор",   desc: "+42 к дальности атаки",                 branch: "range", tier: 3, cost: 1, requires: ["arc_range_2"] },
-        { id: "arc_range_4",   title: "Снайпер",          desc: "+60 к дальности атаки, +120 к дальности стрелы, +3% крита", branch: "range", tier: 4, cost: 1, requires: ["arc_range_3"] }
+        { id: "arc_range_1", title: "Длинный лук", desc: "+28 к дальности атаки", branch: "range", tier: 1, cost: 1, requires: [] },
+        { id: "arc_range_2", title: "Устойчивая стойка", desc: "+70 к дальности полёта стрелы", branch: "range", tier: 2, cost: 1, requires: ["arc_range_1"] },
+        { id: "arc_range_3", title: "Соколиный взор", desc: "+42 к дальности атаки", branch: "range", tier: 3, cost: 1, requires: ["arc_range_2"] },
+        { id: "arc_range_4", title: "Снайпер", desc: "+60 к дальности атаки, +120 к дальности стрелы, +3% крита", branch: "range", tier: 4, cost: 1, requires: ["arc_range_3"] }
       ],
 
       wizard: [
-        { id: "wiz_fire_1",    title: "Пламя души",       desc: "+6 урона",                              branch: "fire",  tier: 1, cost: 1, requires: [] },
-        { id: "wiz_fire_2",    title: "Воспламенение",    desc: "+4% шанса крита",                       branch: "fire",  tier: 2, cost: 1, requires: ["wiz_fire_1"] },
-        { id: "wiz_fire_3",    title: "Мастер огня",      desc: "+10 урона",                             branch: "fire",  tier: 3, cost: 1, requires: ["wiz_fire_2"] },
-        { id: "wiz_fire_4",    title: "Катаклизм",        desc: "+12 урона, +0.30 крит. урона",         branch: "fire",  tier: 4, cost: 1, requires: ["wiz_fire_3"] },
+        { id: "wiz_fire_1", title: "Пламя души", desc: "+6 урона", branch: "fire", tier: 1, cost: 1, requires: [] },
+        { id: "wiz_fire_2", title: "Воспламенение", desc: "+4% шанса крита", branch: "fire", tier: 2, cost: 1, requires: ["wiz_fire_1"] },
+        { id: "wiz_fire_3", title: "Мастер огня", desc: "+10 урона", branch: "fire", tier: 3, cost: 1, requires: ["wiz_fire_2"] },
+        { id: "wiz_fire_4", title: "Катаклизм", desc: "+12 урона, +0.30 крит. урона", branch: "fire", tier: 4, cost: 1, requires: ["wiz_fire_3"] },
 
-        { id: "wiz_range_1",   title: "Дальний каст",     desc: "+24 к дальности атаки",                 branch: "range", tier: 1, cost: 1, requires: [] },
-        { id: "wiz_range_2",   title: "Дальний фокус",    desc: "+80 к дальности фаербола",              branch: "range", tier: 2, cost: 1, requires: ["wiz_range_1"] },
-        { id: "wiz_range_3",   title: "Быстрое пламя",    desc: "+1.5 к скорости фаербола",              branch: "range", tier: 3, cost: 1, requires: ["wiz_range_2"] },
-        { id: "wiz_range_4",   title: "Арканный размах",  desc: "+50 к дальности атаки, +130 к дальности фаербола", branch: "range", tier: 4, cost: 1, requires: ["wiz_range_3"] },
+        { id: "wiz_range_1", title: "Дальний каст", desc: "+24 к дальности атаки", branch: "range", tier: 1, cost: 1, requires: [] },
+        { id: "wiz_range_2", title: "Дальний фокус", desc: "+80 к дальности фаербола", branch: "range", tier: 2, cost: 1, requires: ["wiz_range_1"] },
+        { id: "wiz_range_3", title: "Быстрое пламя", desc: "+1.5 к скорости фаербола", branch: "range", tier: 3, cost: 1, requires: ["wiz_range_2"] },
+        { id: "wiz_range_4", title: "Арканный размах", desc: "+50 к дальности атаки, +130 к дальности фаербола", branch: "range", tier: 4, cost: 1, requires: ["wiz_range_3"] },
 
-        { id: "wiz_ward_1",    title: "Магический покров",desc: "+4 маг. защиты",                        branch: "ward",  tier: 1, cost: 1, requires: [] },
-        { id: "wiz_ward_2",    title: "Арканное тело",    desc: "+40 HP",                                branch: "ward",  tier: 2, cost: 1, requires: ["wiz_ward_1"] },
-        { id: "wiz_ward_3",    title: "Отражающий барьер",desc: "+6 маг. защиты, +3 брони",             branch: "ward",  tier: 3, cost: 1, requires: ["wiz_ward_2"] },
-        { id: "wiz_ward_4",    title: "Щит архимага",     desc: "+10 маг. защиты, +3% шанса крита",     branch: "ward",  tier: 4, cost: 1, requires: ["wiz_ward_3"] }
+        { id: "wiz_ward_1", title: "Магический покров", desc: "+4 маг. защиты", branch: "ward", tier: 1, cost: 1, requires: [] },
+        { id: "wiz_ward_2", title: "Арканное тело", desc: "+40 HP", branch: "ward", tier: 2, cost: 1, requires: ["wiz_ward_1"] },
+        { id: "wiz_ward_3", title: "Отражающий барьер", desc: "+6 маг. защиты, +3 брони", branch: "ward", tier: 3, cost: 1, requires: ["wiz_ward_2"] },
+        { id: "wiz_ward_4", title: "Щит архимага", desc: "+10 маг. защиты, +3% шанса крита", branch: "ward", tier: 4, cost: 1, requires: ["wiz_ward_3"] }
       ]
     };
   }
@@ -379,9 +379,10 @@
     }
 
     return (
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">' +
-        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + 'min-height:38px;padding:6px 8px;font-size:15px;line-height:1.1;white-space:nowrap;">Персонаж</button>' +
-        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + 'min-height:38px;padding:6px 8px;font-size:15px;line-height:1.1;white-space:nowrap;">Скилы</button>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">' +
+        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + 'min-height:38px;padding:6px 8px;font-size:14px;line-height:1.1;white-space:nowrap;">Персонаж</button>' +
+        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + 'min-height:38px;padding:6px 8px;font-size:14px;line-height:1.1;white-space:nowrap;">Скилы</button>' +
+        '<button class="btn" data-view="class" style="' + tabStyle(view === "class") + 'min-height:38px;padding:6px 8px;font-size:14px;line-height:1.1;white-space:nowrap;">Класс</button>' +
       '</div>'
     );
   }
@@ -478,11 +479,6 @@
     }
   }
 
-  /* =========================
-     ✅ НОВОЕ: PRESENCE HEARTBEAT
-     Сообщаем бэкенду что зритель онлайн
-  ========================= */
-
   function sendPresence() {
     if (!twitchReady || !twitchToken) return;
     if (!isViewerLinked()) return;
@@ -508,8 +504,6 @@
     presenceTimer = setInterval(sendPresence, 15000);
   }
 
-  // ✅ КОНЕЦ НОВОЕ
-
   function sendAction(stat, amount) {
     if (!twitchReady || !twitchToken) {
       showHint("Twitch ещё не готов. Попробуй через секунду.");
@@ -521,7 +515,6 @@
 
     function done(message) {
       if (finished) return;
-
       finished = true;
       showHint(message);
     }
@@ -607,7 +600,6 @@
 
     function done(message) {
       if (finished) return;
-
       finished = true;
       showHint(message);
     }
@@ -683,6 +675,259 @@
     }
   }
 
+  function sendReclass(newClass) {
+    if (!twitchReady || !twitchToken) {
+      showHint("Twitch ещё не готов. Попробуй через секунду.");
+      return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    var finished = false;
+
+    function done(message) {
+      if (finished) return;
+      finished = true;
+      showHint(message);
+    }
+
+    try {
+      xhr.open("POST", API + "/api/action", true);
+      xhr.timeout = TIMEOUT_MS;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+
+        var data = null;
+
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch (e) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          done("✓ Рекласс отправлен в игру");
+
+          setTimeout(function () {
+            lastRenderKey = "";
+            load();
+          }, 2500);
+
+          return;
+        }
+
+        if (data && data.needJoin) {
+          done("Сначала напиши !join в чат");
+          return;
+        }
+
+        if (data && data.needIdentity) {
+          done("Нужно разрешить Twitch ID");
+          return;
+        }
+
+        if (data && data.error === "too many pending actions") {
+          done("Слишком много команд в очереди. Подожди.");
+          return;
+        }
+
+        if (data && data.error) {
+          done("Ошибка: " + data.error);
+          return;
+        }
+
+        done("Ошибка отправки рекласса");
+      };
+
+      xhr.onerror = function () {
+        done("Ошибка сети");
+      };
+
+      xhr.ontimeout = function () {
+        done("Timeout отправки");
+      };
+
+      xhr.send(JSON.stringify({
+        type: "reclass",
+        new_class: newClass
+      }));
+    } catch (e) {
+      done("Ошибка: " + e.message);
+    }
+  }
+
+  function sendResetAttrs() {
+    if (!twitchReady || !twitchToken) {
+      showHint("Twitch ещё не готов. Попробуй через секунду.");
+      return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    var finished = false;
+
+    function done(message) {
+      if (finished) return;
+      finished = true;
+      showHint(message);
+    }
+
+    try {
+      xhr.open("POST", API + "/api/action", true);
+      xhr.timeout = TIMEOUT_MS;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+
+        var data = null;
+
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch (e) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          done("✓ Сброс атрибутов отправлен");
+
+          setTimeout(function () {
+            lastRenderKey = "";
+            load();
+          }, 2500);
+
+          return;
+        }
+
+        if (data && data.needJoin) {
+          done("Сначала напиши !join в чат");
+          return;
+        }
+
+        if (data && data.needIdentity) {
+          done("Нужно разрешить Twitch ID");
+          return;
+        }
+
+        if (data && data.error === "too many pending actions") {
+          done("Слишком много команд в очереди. Подожди.");
+          return;
+        }
+
+        if (data && data.error) {
+          done("Ошибка: " + data.error);
+          return;
+        }
+
+        done("Ошибка отправки сброса");
+      };
+
+      xhr.onerror = function () {
+        done("Ошибка сети");
+      };
+
+      xhr.ontimeout = function () {
+        done("Timeout отправки");
+      };
+
+      xhr.send(JSON.stringify({
+        type: "reset_attrs"
+      }));
+    } catch (e) {
+      done("Ошибка: " + e.message);
+    }
+  }
+
+  function sendResetSkilltree() {
+    if (!twitchReady || !twitchToken) {
+      showHint("Twitch ещё не готов. Попробуй через секунду.");
+      return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    var finished = false;
+
+    function done(message) {
+      if (finished) return;
+      finished = true;
+      showHint(message);
+    }
+
+    try {
+      xhr.open("POST", API + "/api/action", true);
+      xhr.timeout = TIMEOUT_MS;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+
+        var data = null;
+
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch (e) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          done("✓ Сброс дерева отправлен");
+
+          setTimeout(function () {
+            lastRenderKey = "";
+            load();
+          }, 2500);
+
+          return;
+        }
+
+        if (data && data.needJoin) {
+          done("Сначала напиши !join в чат");
+          return;
+        }
+
+        if (data && data.needIdentity) {
+          done("Нужно разрешить Twitch ID");
+          return;
+        }
+
+        if (data && data.error === "too many pending actions") {
+          done("Слишком много команд в очереди. Подожди.");
+          return;
+        }
+
+        if (data && data.error) {
+          done("Ошибка: " + data.error);
+          return;
+        }
+
+        done("Ошибка отправки сброса дерева");
+      };
+
+      xhr.onerror = function () {
+        done("Ошибка сети");
+      };
+
+      xhr.ontimeout = function () {
+        done("Timeout отправки");
+      };
+
+      xhr.send(JSON.stringify({
+        type: "reset_skilltree"
+      }));
+    } catch (e) {
+      done("Ошибка: " + e.message);
+    }
+  }
+
   function requestJsonWithJwt(url, done, fail) {
     if (currentXhr) {
       try {
@@ -705,7 +950,6 @@
 
     function endError(message) {
       if (finished) return;
-
       finished = true;
       cleanup();
       fail(new Error(message));
@@ -713,7 +957,6 @@
 
     function endOk(data) {
       if (finished) return;
-
       finished = true;
       cleanup();
       done(data);
@@ -1009,6 +1252,101 @@
     bindButtons();
   }
 
+  function renderClassView(p) {
+    var key = playerKey(p);
+
+    if (lastRenderKey === key) return;
+
+    lastRenderKey = key;
+    lastErrorKey = "";
+
+    var cls = currentClass(p);
+    var lvl = currentLevel(p);
+    var gold = toNum(p.gold, 0);
+    var attrPts = currentPoints(p);
+    var passivePts = skillPointsFree(p);
+
+    function classBtn(label, value, color1, color2) {
+      var isCurrent = cls === value;
+      var extra = isCurrent
+        ? 'opacity:0.65;'
+        : '';
+
+      var text = isCurrent
+        ? label + ' ✓'
+        : label;
+
+      return (
+        '<button class="btn" ' +
+          'data-reclass="' + escapeHtml(value) + '" ' +
+          'data-currentclass="' + (isCurrent ? '1' : '0') + '" ' +
+          'style="background:linear-gradient(135deg,' + color1 + ',' + color2 + ');' + extra + '">' +
+          text +
+          '<small>' + (isCurrent ? 'Текущий класс' : 'Стоимость: 50 золота') + '</small>' +
+        '</button>'
+      );
+    }
+
+    setUI(
+      '<div class="card">' +
+
+        viewTabsHtml("class") +
+
+        '<div class="top">' +
+          '<div class="name">' + escapeHtml(p.username || "-") + '</div>' +
+          '<div class="class">' + escapeHtml(cls) + ' · ' + fmt(lvl) + ' ур.</div>' +
+        '</div>' +
+
+        '<div class="stat-list">' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Текущий класс</div>' +
+            '<div class="stat-value">' + escapeHtml(cls) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Золото</div>' +
+            '<div class="stat-value gold">🪙 ' + fmt(gold) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Очки атрибутов</div>' +
+            '<div class="stat-value">✨ ' + fmt(attrPts) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Очки пассивок</div>' +
+            '<div class="stat-value">🌿 ' + fmt(passivePts) + '</div>' +
+          '</div>' +
+
+        '</div>' +
+
+        '<div class="attr-title">Смена класса</div>' +
+
+        '<div class="btns">' +
+          classBtn("Воин", "warrior", "#7f1d1d", "#ef4444") +
+          classBtn("Лучник", "archer", "#065f46", "#22c55e") +
+          classBtn("Маг", "wizard", "#312e81", "#8b5cf6") +
+        '</div>' +
+
+        '<div class="attr-title">Сброс</div>' +
+
+        '<div class="btns">' +
+          '<button class="btn b-open" data-reset="attrs">Сброс атрибутов<small>Пока бесплатно</small></button>' +
+          '<button class="btn b-open" data-reset="skilltree">Сброс дерева<small>Пока бесплатно</small></button>' +
+        '</div>' +
+
+        '<div class="hint" id="hint">' +
+          'Рекласс стоит 50 золота. Сбросы сейчас бесплатные.' +
+        '</div>' +
+
+      '</div>',
+      ""
+    );
+
+    bindButtons();
+  }
+
   function renderPlayer(p) {
     var key = playerKey(p);
 
@@ -1128,6 +1466,11 @@
       return;
     }
 
+    if (currentView === "class") {
+      renderClassView(p);
+      return;
+    }
+
     renderPlayer(p);
   }
 
@@ -1157,7 +1500,7 @@
       viewButtons[k].addEventListener("click", function () {
         var view = this.getAttribute("data-view") || "stats";
 
-        if (view !== "stats" && view !== "skills") {
+        if (view !== "stats" && view !== "skills" && view !== "class") {
           view = "stats";
         }
 
@@ -1192,6 +1535,39 @@
         }
 
         sendSkillUnlock(playerClass, nodeId);
+      });
+    }
+
+    var reclassButtons = document.querySelectorAll("[data-reclass]");
+
+    for (var r = 0; r < reclassButtons.length; r++) {
+      reclassButtons[r].addEventListener("click", function () {
+        var isCurrent = this.getAttribute("data-currentclass") === "1";
+        var nextClass = this.getAttribute("data-reclass") || "";
+
+        if (isCurrent) {
+          showHint("Этот класс уже выбран.");
+          return;
+        }
+
+        sendReclass(nextClass);
+      });
+    }
+
+    var resetButtons = document.querySelectorAll("[data-reset]");
+
+    for (var q = 0; q < resetButtons.length; q++) {
+      resetButtons[q].addEventListener("click", function () {
+        var kind = this.getAttribute("data-reset") || "";
+
+        if (kind === "attrs") {
+          sendResetAttrs();
+          return;
+        }
+
+        if (kind === "skilltree") {
+          sendResetSkilltree();
+        }
       });
     }
   }
