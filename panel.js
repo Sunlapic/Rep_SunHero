@@ -371,22 +371,28 @@
     return "available";
   }
 
-  function viewTabsHtml(view) {
-    function tabStyle(active) {
-      return active
-        ? "background:linear-gradient(135deg,#7c3aed,#a855f7);border:1px solid rgba(255,255,255,0.22);"
-        : "background:linear-gradient(135deg,#2b2238,#3a2e50);border:1px solid rgba(255,255,255,0.12);";
-    }
-
-    return (
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">' +
-        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Персонаж</button>' +
-        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Скилы</button>' +
-        '<button class="btn" data-view="class" style="' + tabStyle(view === "class") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Класс</button>' +
-      '</div>'
-    );
+ function viewTabsHtml(view) {
+  function tabStyle(active) {
+    return active
+      ? "background:linear-gradient(135deg,#7c3aed,#a855f7);border:1px solid rgba(255,255,255,0.22);"
+      : "background:linear-gradient(135deg,#2b2238,#3a2e50);border:1px solid rgba(255,255,255,0.12);";
   }
 
+  return (
+    '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">' +
+
+      // Первая строка — две кнопки
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Персонаж</button>' +
+        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Скилы</button>' +
+      '</div>' +
+
+      // Вторая строка — кнопка Класс (полная ширина)
+      '<button class="btn" data-view="class" style="' + tabStyle(view === "class") + 'min-height:36px;padding:6px 6px;font-size:13px;line-height:1.1;white-space:nowrap;">Класс</button>' +
+
+    '</div>'
+  );
+}
   function playerKey(p) {
     return JSON.stringify({
       view: currentView,
