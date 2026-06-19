@@ -19,6 +19,9 @@
 
   var presenceTimer = null; // ✅ НОВОЕ
 
+  var currentView = "stats";
+  var currentPlayerData = null;
+
   function setUI(html, className) {
     if (!ui) {
       ui = document.getElementById("ui");
@@ -190,8 +193,190 @@
     return h;
   }
 
+  function arrayHas(arr, value) {
+    if (!Array.isArray(arr)) return false;
+
+    for (var i = 0; i < arr.length; i++) {
+      if (String(arr[i]) === String(value)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function skillTreeDefs() {
+    return {
+      warrior: [
+        { id: "war_tank_1",    title: "Железная кожа I",  desc: "+4 брони",                              branch: "tank",    tier: 1, cost: 1, requires: [] },
+        { id: "war_tank_2",    title: "Стойкое тело",     desc: "+50 HP",                                branch: "tank",    tier: 2, cost: 1, requires: ["war_tank_1"] },
+        { id: "war_tank_3",    title: "Железная кожа II", desc: "+6 брони, +3 маг. защиты",             branch: "tank",    tier: 3, cost: 1, requires: ["war_tank_2"] },
+        { id: "war_tank_4",    title: "Колосс",           desc: "+90 HP, +8 брони",                      branch: "tank",    tier: 4, cost: 1, requires: ["war_tank_3"] },
+
+        { id: "war_berserk_1", title: "Тяжёлый удар",     desc: "+5 урона",                              branch: "berserk", tier: 1, cost: 1, requires: [] },
+        { id: "war_berserk_2", title: "Боевой ритм",      desc: "Атака быстрее на 2 кадра",             branch: "berserk", tier: 2, cost: 1, requires: ["war_berserk_1"] },
+        { id: "war_berserk_3", title: "Палач",            desc: "+6 урона, +0.20 крит. урона",          branch: "berserk", tier: 3, cost: 1, requires: ["war_berserk_2"] },
+        { id: "war_berserk_4", title: "Кровавая ярость",  desc: "+12 урона, атака быстрее на 3 кадра",  branch: "berserk", tier: 4, cost: 1, requires: ["war_berserk_3"] },
+
+        { id: "war_duel_1",    title: "Острый клинок I",  desc: "+3% шанса крита",                       branch: "duel",    tier: 1, cost: 1, requires: [] },
+        { id: "war_duel_2",    title: "Устойчивая стойка",desc: "+4% уворота",                           branch: "duel",    tier: 2, cost: 1, requires: ["war_duel_1"] },
+        { id: "war_duel_3",    title: "Острый клинок II", desc: "+5% шанса крита",                       branch: "duel",    tier: 3, cost: 1, requires: ["war_duel_2"] },
+        { id: "war_duel_4",    title: "Мастер дуэли",     desc: "+0.25 крит. урона, +6% уворота",       branch: "duel",    tier: 4, cost: 1, requires: ["war_duel_3"] }
+      ],
+
+      archer: [
+        { id: "arc_speed_1",   title: "Быстрые пальцы I", desc: "Атака быстрее на 2 кадра",             branch: "speed", tier: 1, cost: 1, requires: [] },
+        { id: "arc_speed_2",   title: "Быстрые пальцы II",desc: "Атака быстрее на 3 кадра",             branch: "speed", tier: 2, cost: 1, requires: ["arc_speed_1"] },
+        { id: "arc_speed_3",   title: "Лёгкая тетива",    desc: "+1 к скорости стрелы",                  branch: "speed", tier: 3, cost: 1, requires: ["arc_speed_2"] },
+        { id: "arc_speed_4",   title: "Стальной дождь",   desc: "Атака быстрее на 4 кадра, +1 к скорости стрелы", branch: "speed", tier: 4, cost: 1, requires: ["arc_speed_3"] },
+
+        { id: "arc_crit_1",    title: "Орлиный глаз I",   desc: "+4% шанса крита",                       branch: "crit",  tier: 1, cost: 1, requires: [] },
+        { id: "arc_crit_2",    title: "Зазубренные наконечники", desc: "+0.15 крит. урона",             branch: "crit",  tier: 2, cost: 1, requires: ["arc_crit_1"] },
+        { id: "arc_crit_3",    title: "Орлиный глаз II",  desc: "+6% шанса крита",                       branch: "crit",  tier: 3, cost: 1, requires: ["arc_crit_2"] },
+        { id: "arc_crit_4",    title: "Сердцеед",         desc: "+4% шанса крита, +0.25 крит. урона",   branch: "crit",  tier: 4, cost: 1, requires: ["arc_crit_3"] },
+
+        { id: "arc_range_1",   title: "Длинный лук",      desc: "+28 к дальности атаки",                 branch: "range", tier: 1, cost: 1, requires: [] },
+        { id: "arc_range_2",   title: "Устойчивая стойка",desc: "+70 к дальности полёта стрелы",        branch: "range", tier: 2, cost: 1, requires: ["arc_range_1"] },
+        { id: "arc_range_3",   title: "Соколиный взор",   desc: "+42 к дальности атаки",                 branch: "range", tier: 3, cost: 1, requires: ["arc_range_2"] },
+        { id: "arc_range_4",   title: "Снайпер",          desc: "+60 к дальности атаки, +120 к дальности стрелы, +3% крита", branch: "range", tier: 4, cost: 1, requires: ["arc_range_3"] }
+      ],
+
+      wizard: [
+        { id: "wiz_fire_1",    title: "Пламя души",       desc: "+6 урона",                              branch: "fire",  tier: 1, cost: 1, requires: [] },
+        { id: "wiz_fire_2",    title: "Воспламенение",    desc: "+4% шанса крита",                       branch: "fire",  tier: 2, cost: 1, requires: ["wiz_fire_1"] },
+        { id: "wiz_fire_3",    title: "Мастер огня",      desc: "+10 урона",                             branch: "fire",  tier: 3, cost: 1, requires: ["wiz_fire_2"] },
+        { id: "wiz_fire_4",    title: "Катаклизм",        desc: "+12 урона, +0.30 крит. урона",         branch: "fire",  tier: 4, cost: 1, requires: ["wiz_fire_3"] },
+
+        { id: "wiz_range_1",   title: "Дальний каст",     desc: "+24 к дальности атаки",                 branch: "range", tier: 1, cost: 1, requires: [] },
+        { id: "wiz_range_2",   title: "Дальний фокус",    desc: "+80 к дальности фаербола",              branch: "range", tier: 2, cost: 1, requires: ["wiz_range_1"] },
+        { id: "wiz_range_3",   title: "Быстрое пламя",    desc: "+1.5 к скорости фаербола",              branch: "range", tier: 3, cost: 1, requires: ["wiz_range_2"] },
+        { id: "wiz_range_4",   title: "Арканный размах",  desc: "+50 к дальности атаки, +130 к дальности фаербола", branch: "range", tier: 4, cost: 1, requires: ["wiz_range_3"] },
+
+        { id: "wiz_ward_1",    title: "Магический покров",desc: "+4 маг. защиты",                        branch: "ward",  tier: 1, cost: 1, requires: [] },
+        { id: "wiz_ward_2",    title: "Арканное тело",    desc: "+40 HP",                                branch: "ward",  tier: 2, cost: 1, requires: ["wiz_ward_1"] },
+        { id: "wiz_ward_3",    title: "Отражающий барьер",desc: "+6 маг. защиты, +3 брони",             branch: "ward",  tier: 3, cost: 1, requires: ["wiz_ward_2"] },
+        { id: "wiz_ward_4",    title: "Щит архимага",     desc: "+10 маг. защиты, +3% шанса крита",     branch: "ward",  tier: 4, cost: 1, requires: ["wiz_ward_3"] }
+      ]
+    };
+  }
+
+  function branchTitle(cls, branch) {
+    var map = {
+      warrior: {
+        tank: "ТАНК",
+        berserk: "БЕРСЕРК",
+        duel: "ДУЭЛЯНТ"
+      },
+      archer: {
+        speed: "СКОРОСТРЕЛ",
+        crit: "КРИТ",
+        range: "ДАЛЬНОБОЙНОСТЬ"
+      },
+      wizard: {
+        fire: "ОГОНЬ",
+        range: "ДАЛЬНОСТЬ",
+        ward: "ЗАЩИТА"
+      }
+    };
+
+    if (map[cls] && map[cls][branch]) {
+      return map[cls][branch];
+    }
+
+    return branch;
+  }
+
+  function currentSkillNodes(p) {
+    var cls = currentClass(p);
+
+    if (!p || !p.class_skill_nodes || !Array.isArray(p.class_skill_nodes[cls])) {
+      return [];
+    }
+
+    return p.class_skill_nodes[cls];
+  }
+
+  function currentTreeDefs(p) {
+    var defs = skillTreeDefs();
+    var cls = currentClass(p);
+
+    if (defs && defs[cls]) {
+      return defs[cls];
+    }
+
+    return [];
+  }
+
+  function skillPointsEarned(p) {
+    return Math.max(0, Math.floor(currentLevel(p) / 5));
+  }
+
+  function skillPointsSpent(p) {
+    var opened = currentSkillNodes(p);
+    var defs = currentTreeDefs(p);
+    var spent = 0;
+
+    for (var i = 0; i < defs.length; i++) {
+      if (arrayHas(opened, defs[i].id)) {
+        spent += toNum(defs[i].cost, 1);
+      }
+    }
+
+    return spent;
+  }
+
+  function skillPointsFree(p) {
+    return Math.max(0, skillPointsEarned(p) - skillPointsSpent(p));
+  }
+
+  function requirementsMet(opened, node) {
+    var reqs = node.requires || [];
+
+    for (var i = 0; i < reqs.length; i++) {
+      if (!arrayHas(opened, reqs[i])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function nodeState(p, node) {
+    var opened = currentSkillNodes(p);
+
+    if (arrayHas(opened, node.id)) {
+      return "opened";
+    }
+
+    if (!requirementsMet(opened, node)) {
+      return "locked_req";
+    }
+
+    if (skillPointsFree(p) < toNum(node.cost, 1)) {
+      return "locked_points";
+    }
+
+    return "available";
+  }
+
+  function viewTabsHtml(view) {
+    function tabStyle(active) {
+      return active
+        ? "background:linear-gradient(135deg,#7c3aed,#a855f7);border:1px solid rgba(255,255,255,0.22);"
+        : "background:linear-gradient(135deg,#2b2238,#3a2e50);border:1px solid rgba(255,255,255,0.12);";
+    }
+
+    return (
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;">' +
+        '<button class="btn" data-view="stats" style="' + tabStyle(view === "stats") + '">Персонаж</button>' +
+        '<button class="btn" data-view="skills" style="' + tabStyle(view === "skills") + '">Скилы</button>' +
+      '</div>'
+    );
+  }
+
   function playerKey(p) {
     return JSON.stringify({
+      view: currentView,
       username: p.username,
       class: p["class"],
 
@@ -220,6 +405,7 @@
       class_levels: p.class_levels,
       class_exp: p.class_exp,
       class_attr_points: p.class_attr_points,
+      class_skill_nodes: p.class_skill_nodes,
 
       kills: p.kills,
       updatedAt: p.updatedAt
@@ -297,17 +483,14 @@
       xhr.setRequestHeader("Accept", "application/json");
       xhr.setRequestHeader("x-extension-jwt", twitchToken);
 
-      xhr.send(JSON.stringify({ platform: "mobile" })); // ✅ mobile, не panel
-    } catch (e) {
-      // Тихо игнорируем — heartbeat фоновый
-    }
+      xhr.send(JSON.stringify({ platform: "mobile" }));
+    } catch (e) {}
   }
 
   function startPresence() {
     if (presenceTimer) return;
 
     sendPresence();
-
     presenceTimer = setInterval(sendPresence, 15000);
   }
 
@@ -393,6 +576,93 @@
       xhr.send(JSON.stringify({
         stat: stat,
         amount: amount || 1
+      }));
+    } catch (e) {
+      done("Ошибка: " + e.message);
+    }
+  }
+
+  function sendSkillUnlock(playerClass, nodeId) {
+    if (!twitchReady || !twitchToken) {
+      showHint("Twitch ещё не готов. Попробуй через секунду.");
+      return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    var finished = false;
+
+    function done(message) {
+      if (finished) return;
+
+      finished = true;
+      showHint(message);
+    }
+
+    try {
+      xhr.open("POST", API + "/api/action", true);
+      xhr.timeout = TIMEOUT_MS;
+
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("x-extension-jwt", twitchToken);
+
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+
+        var data = null;
+
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch (e) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          done("✓ Узел дерева отправлен в игру");
+
+          setTimeout(function () {
+            lastRenderKey = "";
+            load();
+          }, 2500);
+
+          return;
+        }
+
+        if (data && data.needJoin) {
+          done("Сначала напиши !join в чат");
+          return;
+        }
+
+        if (data && data.needIdentity) {
+          done("Нужно разрешить Twitch ID");
+          return;
+        }
+
+        if (data && data.error === "too many pending actions") {
+          done("Слишком много команд в очереди. Подожди.");
+          return;
+        }
+
+        if (data && data.error) {
+          done("Ошибка: " + data.error);
+          return;
+        }
+
+        done("Ошибка отправки узла");
+      };
+
+      xhr.onerror = function () {
+        done("Ошибка сети");
+      };
+
+      xhr.ontimeout = function () {
+        done("Timeout отправки");
+      };
+
+      xhr.send(JSON.stringify({
+        type: "skill_unlock",
+        "class": playerClass,
+        node_id: nodeId
       }));
     } catch (e) {
       done("Ошибка: " + e.message);
@@ -582,6 +852,147 @@
     );
   }
 
+  function renderSkillTree(p) {
+    var key = playerKey(p);
+
+    if (lastRenderKey === key) return;
+
+    lastRenderKey = key;
+    lastErrorKey = "";
+
+    var cls = currentClass(p);
+    var lvl = currentLevel(p);
+    var earned = skillPointsEarned(p);
+    var spent = skillPointsSpent(p);
+    var free = skillPointsFree(p);
+    var opened = currentSkillNodes(p);
+    var defs = currentTreeDefs(p);
+
+    var branchOrder = [];
+    var branchMap = {};
+
+    for (var i = 0; i < defs.length; i++) {
+      var br = defs[i].branch;
+
+      if (!branchMap[br]) {
+        branchMap[br] = [];
+        branchOrder.push(br);
+      }
+
+      branchMap[br].push(defs[i]);
+    }
+
+    var branchesHtml = "";
+
+    for (var bi = 0; bi < branchOrder.length; bi++) {
+      var branch = branchOrder[bi];
+      var nodes = branchMap[branch];
+
+      branchesHtml +=
+        '<div style="margin-top:10px;padding:9px;border-radius:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.08);">' +
+          '<div style="color:#fbbf24;font-weight:900;font-size:14px;text-align:center;margin-bottom:6px;">' +
+            escapeHtml(branchTitle(cls, branch)) +
+          '</div>';
+
+      for (var ni = 0; ni < nodes.length; ni++) {
+        var node = nodes[ni];
+        var state = nodeState(p, node);
+
+        var bg = "#2a2236";
+        var border = "rgba(255,255,255,0.10)";
+        var badge = "Закрыто";
+        var lockMsg = "Узел пока недоступен.";
+
+        if (state === "opened") {
+          bg = "linear-gradient(135deg,#14532d,#22c55e)";
+          border = "rgba(134,239,172,0.45)";
+          badge = "Открыто";
+          lockMsg = "Этот узел уже открыт.";
+        } else if (state === "available") {
+          bg = "linear-gradient(135deg,#92400e,#f59e0b)";
+          border = "rgba(251,191,36,0.45)";
+          badge = "Открыть";
+          lockMsg = "";
+        } else if (state === "locked_req") {
+          bg = "linear-gradient(135deg,#2b2238,#3a2e50)";
+          border = "rgba(255,255,255,0.10)";
+          badge = "Нужен предыдущий";
+          lockMsg = "Сначала открой предыдущий узел.";
+        } else if (state === "locked_points") {
+          bg = "linear-gradient(135deg,#2b2238,#3a2e50)";
+          border = "rgba(255,255,255,0.10)";
+          badge = "Нужно очко";
+          lockMsg = "Недостаточно очков пассивок.";
+        }
+
+        branchesHtml +=
+          '<button class="btn" ' +
+            'data-skill-node="' + escapeHtml(node.id) + '" ' +
+            'data-skill-class="' + escapeHtml(cls) + '" ' +
+            'data-skill-state="' + escapeHtml(state) + '" ' +
+            'data-lockmsg="' + escapeHtml(lockMsg) + '" ' +
+            'style="margin-top:7px;text-align:left;min-height:66px;padding:9px 10px;background:' + bg + ';border:1px solid ' + border + ';">' +
+              '<div style="display:flex;justify-content:space-between;gap:8px;">' +
+                '<div style="font-size:14px;font-weight:900;color:#fff;">' + escapeHtml(node.title) + '</div>' +
+                '<div style="font-size:11px;color:#f8e7b8;white-space:nowrap;">T' + escapeHtml(node.tier) + '</div>' +
+              '</div>' +
+              '<div style="font-size:12px;opacity:0.92;margin-top:3px;color:#f8e7b8;line-height:1.2;">' + escapeHtml(node.desc) + '</div>' +
+              '<div style="font-size:11px;opacity:0.9;margin-top:5px;color:#fff;">' +
+                badge + ' · ' + fmt(node.cost || 1) + ' оч.' +
+              '</div>' +
+          '</button>';
+      }
+
+      branchesHtml += '</div>';
+    }
+
+    setUI(
+      '<div class="card">' +
+
+        viewTabsHtml("skills") +
+
+        '<div class="top">' +
+          '<div class="name">' + escapeHtml(p.username || "-") + '</div>' +
+          '<div class="class">' + escapeHtml(cls) + ' · ' + fmt(lvl) + ' ур.</div>' +
+        '</div>' +
+
+        '<div class="stat-list">' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Очки дерева</div>' +
+            '<div class="stat-value">🌿 ' + fmt(free) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Получено</div>' +
+            '<div class="stat-value">' + fmt(earned) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Потрачено</div>' +
+            '<div class="stat-value">' + fmt(spent) + '</div>' +
+          '</div>' +
+
+          '<div class="stat-line">' +
+            '<div class="stat-name">Открыто узлов</div>' +
+            '<div class="stat-value">' + fmt(opened.length) + '</div>' +
+          '</div>' +
+
+        '</div>' +
+
+        '<div class="mini">1 очко каждые 5 уровней текущего класса.</div>' +
+
+        branchesHtml +
+
+        '<div class="hint" id="hint">Нажми доступный узел.</div>' +
+
+      '</div>',
+      ""
+    );
+
+    bindButtons();
+  }
+
   function renderPlayer(p) {
     var key = playerKey(p);
 
@@ -598,9 +1009,12 @@
     var dodge = dodgePercent(p);
     var crit = critPercent(p);
     var hints = statHints(p);
+    var passivePts = skillPointsFree(p);
 
     setUI(
       '<div class="card">' +
+
+        viewTabsHtml("stats") +
 
         '<div class="top">' +
           '<div class="name">' + escapeHtml(p.username || "-") + '</div>' +
@@ -654,6 +1068,8 @@
         '<div class="attr-points-box">' +
           '<div class="attr-points-label">Очки атрибутов</div>' +
           '<div class="attr-points-value">✨ ' + fmt(pts) + '</div>' +
+          '<div class="attr-points-label" style="margin-top:8px;">Очки пассивок</div>' +
+          '<div class="attr-points-value">🌿 ' + fmt(passivePts) + '</div>' +
         '</div>' +
 
         '<div class="attr-title">Атрибуты</div>' +
@@ -688,6 +1104,17 @@
     bindButtons();
   }
 
+  function renderCurrentView(p) {
+    currentPlayerData = p;
+
+    if (currentView === "skills") {
+      renderSkillTree(p);
+      return;
+    }
+
+    renderPlayer(p);
+  }
+
   function bindButtons() {
     var actionButtons = document.querySelectorAll("[data-stat]");
 
@@ -705,6 +1132,50 @@
     for (var j = 0; j < commandButtons.length; j++) {
       commandButtons[j].addEventListener("click", function () {
         copyCommand(this.getAttribute("data-cmd"));
+      });
+    }
+
+    var viewButtons = document.querySelectorAll("[data-view]");
+
+    for (var k = 0; k < viewButtons.length; k++) {
+      viewButtons[k].addEventListener("click", function () {
+        var view = this.getAttribute("data-view") || "stats";
+
+        if (view !== "stats" && view !== "skills") {
+          view = "stats";
+        }
+
+        currentView = view;
+        lastRenderKey = "";
+
+        if (currentPlayerData) {
+          renderCurrentView(currentPlayerData);
+        } else {
+          load();
+        }
+      });
+    }
+
+    var skillButtons = document.querySelectorAll("[data-skill-node]");
+
+    for (var s = 0; s < skillButtons.length; s++) {
+      skillButtons[s].addEventListener("click", function () {
+        var state = this.getAttribute("data-skill-state") || "";
+        var lockMsg = this.getAttribute("data-lockmsg") || "";
+        var nodeId = this.getAttribute("data-skill-node") || "";
+        var playerClass = this.getAttribute("data-skill-class") || "";
+
+        if (state === "opened") {
+          showHint("Этот узел уже открыт.");
+          return;
+        }
+
+        if (state !== "available") {
+          showHint(lockMsg || "Узел пока недоступен.");
+          return;
+        }
+
+        sendSkillUnlock(playerClass, nodeId);
       });
     }
   }
@@ -735,7 +1206,7 @@
           return;
         }
 
-        renderPlayer(data);
+        renderCurrentView(data);
       },
       function (err) {
         firstLoadDone = true;
@@ -789,7 +1260,7 @@
       twitchReady = true;
 
       startPolling();
-      startPresence(); // ✅ НОВОЕ
+      startPresence();
     });
 
     window.Twitch.ext.onContext(function (ctx) {
@@ -812,13 +1283,13 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) {
       load();
-      sendPresence(); // ✅ НОВОЕ
+      sendPresence();
     }
   });
 
   window.addEventListener("focus", function () {
     load();
-    sendPresence(); // ✅ НОВОЕ
+    sendPresence();
   });
 
   initTwitch();
