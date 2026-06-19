@@ -259,6 +259,9 @@ function normalizeActionType(value) {
 
   if (["attr", "stat", "add_stat", "attribute"].includes(raw)) return "attr";
   if (["skill_unlock", "skill", "unlock_skill", "skilltree", "passive_skill"].includes(raw)) return "skill_unlock";
+  if (["reclass", "class_change", "change_class"].includes(raw)) return "reclass";
+  if (["reset_attrs", "resetstats", "reset_attr_points"].includes(raw)) return "reset_attrs";
+  if (["reset_skilltree", "resettree", "resetskills", "resetskilltree"].includes(raw)) return "reset_skilltree";
 
   return "";
 }
@@ -855,6 +858,8 @@ app.post("/api/action", verifyExtensionJwt, async (req, res) => {
         actionType = "attr";
       } else if (body.node_id !== undefined || body.nodeId !== undefined || body.skill_id !== undefined || body.skillId !== undefined) {
         actionType = "skill_unlock";
+      } else if (body.new_class !== undefined || body.class !== undefined || body.reclass !== undefined) {
+        actionType = "reclass";
       }
     }
 
@@ -902,6 +907,45 @@ app.post("/api/action", verifyExtensionJwt, async (req, res) => {
         type: "skill_unlock",
         class: skillClass,
         node_id: nodeId,
+        username: player.username,
+        twitch_user_id: twitchUserId,
+        status: "pending",
+        source: "extension",
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+    } else if (actionType === "reclass") {
+      const nextClass = normalizeSkillClass(
+        body.new_class || body.class || body.reclass || ""
+      );
+
+      if (!nextClass) return res.status(400).json({ error: "bad class" });
+
+      action = {
+        type: "reclass",
+        class: nextClass,
+        username: player.username,
+        twitch_user_id: twitchUserId,
+        status: "pending",
+        source: "extension",
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+    } else if (actionType === "reset_attrs") {
+      action = {
+        type: "reset_attrs",
+        class: normalizeSkillClass(body.class || player.class || "") || player.class,
+        username: player.username,
+        twitch_user_id: twitchUserId,
+        status: "pending",
+        source: "extension",
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+    } else if (actionType === "reset_skilltree") {
+      action = {
+        type: "reset_skilltree",
+        class: normalizeSkillClass(body.class || player.class || "") || player.class,
         username: player.username,
         twitch_user_id: twitchUserId,
         status: "pending",
