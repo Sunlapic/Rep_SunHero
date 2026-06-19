@@ -148,9 +148,10 @@ function createPlayer(name) {
       archer:  { strength: 2, agility: 5, intellect: 2 },
       wizard:  { strength: 2, agility: 2, intellect: 5 }
     },
-    class_levels:     { warrior: 1, archer: 1, wizard: 1 },
-    class_exp:        { warrior: 0, archer: 0, wizard: 0 },
-    class_attr_points:{ warrior: 0, archer: 0, wizard: 0 },
+    class_levels:      { warrior: 1, archer: 1, wizard: 1 },
+    class_exp:         { warrior: 0, archer: 0, wizard: 0 },
+    class_attr_points: { warrior: 0, archer: 0, wizard: 0 },
+    class_skill_nodes: { warrior: [], archer: [], wizard: [] },
     createdAt: nowIso(),
     updatedAt: nowIso()
   };
@@ -200,6 +201,16 @@ function publicPlayer(player) {
   if (copy.crit_chance === undefined || copy.crit_chance === null) copy.crit_chance = 0;
   if (copy.crit_mult === undefined || copy.crit_mult === null) copy.crit_mult = 1.5;
 
+  const skillNodes = (copy.class_skill_nodes && typeof copy.class_skill_nodes === "object")
+    ? copy.class_skill_nodes
+    : {};
+
+  copy.class_skill_nodes = {
+    warrior: Array.isArray(skillNodes.warrior) ? skillNodes.warrior : [],
+    archer:  Array.isArray(skillNodes.archer)  ? skillNodes.archer  : [],
+    wizard:  Array.isArray(skillNodes.wizard)  ? skillNodes.wizard  : []
+  };
+
   return copy;
 }
 
@@ -213,7 +224,8 @@ const allowedFields = [
   "hp", "max_hp", "damage", "armor", "magic_res", "attack_spd", "kills",
   "crit_chance", "crit_mult",
   "dodge", "dodge_chance", "dodge_percent", "evasion", "evasion_percent",
-  "class_stats", "class_levels", "class_exp", "class_attr_points"
+  "class_stats", "class_levels", "class_exp", "class_attr_points",
+  "class_skill_nodes"
 ];
 
 /* =========================
