@@ -3,7 +3,7 @@
 
   var API = "https://rep-sunhero.onrender.com";
   var POLL_MS = 5000;
-  var TIMEOUT_MS = 12000;
+  var TIMEOUT_MS = 30000;  // ← было 12000, мобилке нужно больше
 
   var ui = document.getElementById("ui");
 
@@ -17,7 +17,7 @@
   var lastRenderKey = "";
   var lastErrorKey = "";
 
-  var presenceTimer = null; // ✅ НОВОЕ
+  var presenceTimer = null;
 
   var currentView = "stats";
   var currentPlayerData = null;
@@ -1590,7 +1590,13 @@
         renderCurrentView(data);
       },
       function (err) {
-        firstLoadDone = true;
+        // ── RETRY: первая загрузка не удалась — пробуем ещё раз через 3 сек ──
+        if (!firstLoadDone) {
+          setTimeout(function () {
+            load();
+          }, 3000);
+          return;
+        }
 
         if (lastRenderKey && firstLoadDone) {
           return;
@@ -1635,6 +1641,14 @@
       renderError(new Error("Twitch helper не найден. Открой панель через Twitch Extension."));
       return;
     }
+
+    // ── ПРОГРЕВ СОЕДИНЕНИЯ: пингуем сервер пока ждём Twitch auth ──
+    try {
+      var wake = new XMLHttpRequest();
+      wake.open("GET", API + "/health", true);
+      wake.timeout = 45000;
+      wake.send(null);
+    } catch (e) {}
 
     window.Twitch.ext.onAuthorized(function (auth) {
       twitchToken = auth && auth.token ? auth.token : "";
